@@ -46,6 +46,40 @@ Every finding produced by a QASE specialist MUST follow this exact format:
 8. **Senior Suggestion** MUST include actual code — not "consider refactoring" but the actual refactored code. If the fix is architectural (not a code snippet), describe the structural change with a before/after diagram.
 9. **References** link to established standards — not opinions
 
+## Browser Testing Variant
+
+`qa-browser` uses an adapted finding format for runtime issues discovered in a live application:
+
+```markdown
+### {SEVERITY}: {Title}
+
+**Agent**: qa-browser
+**URL**: `{page-url}`
+**Element**: `{element description or CSS selector}`
+**Category**: {console-errors | network | accessibility | interaction | navigation | responsive | performance | user-flow}
+
+#### What Failed
+{Concise description of the runtime issue observed}
+
+#### Why It Matters
+{Impact on real users — broken functionality, inaccessibility, poor experience}
+
+#### Senior Suggestion
+{Actionable fix — code snippet, configuration change, or specific remediation}
+
+#### Evidence
+{Console error text, network request details, axe-core violation, or screenshot reference}
+
+#### References
+- {Relevant standard: WCAG 2.1 SC X.Y.Z, Web Vitals threshold, OWASP rule, etc.}
+```
+
+Key differences from the standard format:
+- **URL** replaces **File** — findings reference the page URL, not a source file
+- **Element** replaces **Lines** — findings reference DOM elements, not line numbers
+- **Evidence** section is added — captures runtime proof (console output, network details, axe results)
+- **Category** uses browser-specific categories instead of code routing categories
+
 ## Grouping
 
 Within a specialist's report, findings are grouped by severity:

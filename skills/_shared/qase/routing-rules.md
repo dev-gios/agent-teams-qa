@@ -91,6 +91,20 @@ medium:   database or api or business, or 5+ files changed
 low:      ui-only, test-only, config-only, docs-only
 ```
 
+## Out-of-Band Specialists
+
+Some specialists operate **outside the code-diff pipeline** and are not routed by `qa-scan`:
+
+| Specialist | Trigger | Why Out-of-Band |
+|------------|---------|-----------------|
+| `qa-browser` | `/qa-browser <url> [flows]` | Tests a live running application via Chrome DevTools, not source code diffs |
+
+Out-of-band specialists:
+- Do NOT have a column in the routing matrix (they don't analyze file changes)
+- Are NOT activated by `qa-scan` — they are launched directly via solo commands
+- The "Minimum Viable Squad" rule only applies to code-change reviews, not to out-of-band specialists
+- Can still use dismissed patterns from `qa-feedback` for their own finding categories
+
 ## Dismissed Patterns (Feedback Integration)
 
 Before routing, `qa-scan` loads any existing feedback from Engram or `qaspec/feedback/`:
