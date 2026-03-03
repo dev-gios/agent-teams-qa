@@ -26,9 +26,13 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
+# --- Counters ---
+PASS_COUNT=0
+FAIL_COUNT=0
+
 # --- Test Helpers ---
-test_pass() { echo -e "  ${GREEN}PASS${NC} $1"; }
-test_fail() { echo -e "  ${RED}FAIL${NC} $1"; exit 1; }
+test_pass() { printf "  ${GREEN}PASS${NC} %s\n" "$1"; PASS_COUNT=$((PASS_COUNT + 1)); }
+test_fail() { printf "  ${RED}FAIL${NC} %s\n" "$1"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
 
 # ============================================================================
 # 1. JSON Parser Tests (Task 2.1)
@@ -112,6 +116,71 @@ test_installer_core() {
 }
 
 # ============================================================================
+# 4. JSON Parser Error-Path Tests (Tasks 3.3–3.7)
+# ============================================================================
+test_json_parser_errors() {
+    echo -e "\n${BOLD}Testing Library: json_parser.sh (error paths)${NC}"
+
+    # --- Fixture setup ---
+    local valid_json="$TMP_DIR/valid.json"
+    cat > "$valid_json" <<'FIXTURE'
+{
+  "name": "Test Tool",
+  "id": "test-id"
+}
+FIXTURE
+
+    local malformed_json="$TMP_DIR/malformed.json"
+    printf '{bad json missing quotes\n' > "$malformed_json"
+
+    local empty_file="$TMP_DIR/empty.json"
+    : > "$empty_file"
+
+    local nonexistent_file="$TMP_DIR/does_not_exist.json"
+
+    # 3.3 — get_json_val with missing key
+    if result=$(get_json_val "$valid_json" "nonexistent_key" 2>/dev/null); then
+        test_fail "get_json_val should fail for missing key"
+    else
+        test_pass "get_json_val: returns exit 1 for missing key"
+    fi
+
+    # 3.4 — get_json_val with malformed JSON
+    if result=$(get_json_val "$malformed_json" "name" 2>/dev/null); then
+        test_fail "get_json_val should fail for malformed JSON"
+    else
+        test_pass "get_json_val: returns exit 1 for malformed JSON"
+    fi
+
+    # 3.5 — get_json_val with empty file
+    if result=$(get_json_val "$empty_file" "name" 2>/dev/null); then
+        test_fail "get_json_val should fail for empty file"
+    else
+        test_pass "get_json_val: returns exit 1 for empty file"
+    fi
+
+    # 3.6 — get_json_val with nonexistent file
+    if result=$(get_json_val "$nonexistent_file" "name" 2>/dev/null); then
+        test_fail "get_json_val should fail for nonexistent file"
+    else
+        test_pass "get_json_val: returns exit 1 for nonexistent file"
+    fi
+
+    # 3.7 — require_json_val with missing key (should fail AND print error)
+    local stderr_output
+    if result=$(require_json_val "$valid_json" "nonexistent_key" "Test Label" 2>"$TMP_DIR/stderr.txt"); then
+        test_fail "require_json_val should fail for missing key"
+    else
+        stderr_output=$(cat "$TMP_DIR/stderr.txt")
+        if [[ "$stderr_output" == *"ERROR"* ]]; then
+            test_pass "require_json_val: returns exit 1 and prints error for missing key"
+        else
+            test_fail "require_json_val: failed but did not print error to stderr"
+        fi
+    fi
+}
+
+# ============================================================================
 # Main Test Runner
 # ============================================================================
 echo -e "${CYAN}${BOLD}=== QASE Modular Test Suite ===${NC}"
@@ -119,5 +188,19 @@ echo -e "${CYAN}${BOLD}=== QASE Modular Test Suite ===${NC}"
 test_json_parser
 test_os_detect
 test_installer_core
+test_json_parser_errors
 
-echo -e "\n${GREEN}${BOLD}ALL TESTS PASSED!${NC}\n"
+# ============================================================================
+# Summary
+# ============================================================================
+echo ""
+printf "${BOLD}=== Summary ===${NC}\n"
+printf "  PASS: %d, FAIL: %d\n" "$PASS_COUNT" "$FAIL_COUNT"
+
+if [ "$FAIL_COUNT" -gt 0 ]; then
+    printf "${RED}${BOLD}RESULT: FAILED${NC}\n"
+    exit 1
+else
+    printf "${GREEN}${BOLD}RESULT: ALL PASSED${NC}\n"
+    exit 0
+fi
