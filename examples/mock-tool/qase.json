@@ -1,0 +1,7 @@
+{
+  "id": "mock",
+  "name": "Mock Tool",
+  "install": {
+    "linux": "/tmp/mock"
+  }
+}

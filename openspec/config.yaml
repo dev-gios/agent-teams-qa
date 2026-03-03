@@ -1,0 +1,30 @@
+# openspec/config.yaml
+schema: spec-driven
+
+context: |
+  Tech stack: Bash, Markdown (AI Agent Skill Framework)
+  Architecture: Orchestrator/Sub-agent (Modular refactor in progress)
+  Testing: Bash-based verification scripts (scripts/install_test.sh)
+  Style: Custom SKILL.md Linter (scripts/lint_skills.sh)
+
+rules:
+  proposal:
+    - Include rollback plan for script changes
+    - Identify affected modules (scripts/lib/)
+  specs:
+    - Use Given/When/Then format for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for script flows
+    - Document architecture decisions with rationale
+  tasks:
+    - Group tasks by phase (infrastructure, implementation, testing)
+    - Use hierarchical numbering (1.1, 1.2, etc.)
+    - Keep tasks small enough to complete in one session
+  apply:
+    - Follow existing modular patterns in scripts/lib/
+  verify:
+    - Run scripts/lint_skills.sh and scripts/install_test.sh
+    - Compare implementation against every spec scenario
+  archive:
+    - Warn before merging destructive deltas

@@ -1,0 +1,24 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# QASE artifacts (if using openspec mode locally)
+qaspec/
+
+# Node (if testing with JS projects)
+node_modules/
+
+# Python (if testing with Python projects)
+__pycache__/
+*.pyc
+.venv/
+
+# Claude Code
+.claude/

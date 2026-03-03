@@ -1,0 +1,16 @@
+{
+  "id": "antigravity",
+  "name": "Antigravity",
+  "description": "Advanced agent orchestration system",
+  "install": {
+    "linux": "$HOME/.gemini/antigravity/skills",
+    "macos": "$HOME/.gemini/antigravity/skills",
+    "wsl": "$HOME/.gemini/antigravity/skills",
+    "windows": "$USERPROFILE/.gemini/antigravity/skills"
+  },
+  "orchestrator": {
+    "source": "qase-orchestrator.md",
+    "target_label": "~/.gemini/GEMINI.md or .agent/rules/",
+    "auto_append": false
+  }
+}

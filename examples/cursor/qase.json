@@ -1,0 +1,16 @@
+{
+  "id": "cursor",
+  "name": "Cursor",
+  "description": "The AI-native code editor",
+  "install": {
+    "linux": "$HOME/.cursor/skills",
+    "macos": "$HOME/.cursor/skills",
+    "wsl": "$HOME/.cursor/skills",
+    "windows": "$USERPROFILE/.cursor/skills"
+  },
+  "orchestrator": {
+    "source": ".cursorrules",
+    "target_label": ".cursorrules (Project Root)",
+    "auto_append": false
+  }
+}

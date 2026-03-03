@@ -1,0 +1,16 @@
+{
+  "id": "gemini-cli",
+  "name": "Gemini CLI",
+  "description": "Standard AI CLI for Google Gemini models",
+  "install": {
+    "linux": "$HOME/.gemini/skills",
+    "macos": "$HOME/.gemini/skills",
+    "wsl": "$HOME/.gemini/skills",
+    "windows": "$USERPROFILE/.gemini/skills"
+  },
+  "orchestrator": {
+    "source": "GEMINI.md",
+    "target_label": "~/.gemini/GEMINI.md",
+    "auto_append": false
+  }
+}

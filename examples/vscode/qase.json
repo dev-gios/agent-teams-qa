@@ -1,0 +1,16 @@
+{
+  "id": "vscode",
+  "name": "VS Code (Copilot)",
+  "description": "Visual Studio Code with GitHub Copilot",
+  "install": {
+    "linux": "./.vscode/skills",
+    "macos": "./.vscode/skills",
+    "wsl": "./.vscode/skills",
+    "windows": "./.vscode/skills"
+  },
+  "orchestrator": {
+    "source": "copilot-instructions.md",
+    "target_label": ".github/copilot-instructions.md",
+    "auto_append": false
+  }
+}

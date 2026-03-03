@@ -1,0 +1,16 @@
+{
+  "id": "codex",
+  "name": "Codex",
+  "description": "OpenAI Codex based agent framework",
+  "install": {
+    "linux": "$HOME/.codex/skills",
+    "macos": "$HOME/.codex/skills",
+    "wsl": "$HOME/.codex/skills",
+    "windows": "$USERPROFILE/.codex/skills"
+  },
+  "orchestrator": {
+    "source": "agents.md",
+    "target_label": "Codex instructions file",
+    "auto_append": false
+  }
+}

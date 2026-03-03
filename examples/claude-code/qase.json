@@ -1,0 +1,16 @@
+{
+  "id": "claude-code",
+  "name": "Claude Code",
+  "description": "Agentic CLI for Anthropic models",
+  "install": {
+    "linux": "$HOME/.claude/skills",
+    "macos": "$HOME/.claude/skills",
+    "wsl": "$HOME/.claude/skills",
+    "windows": "$USERPROFILE/.claude/skills"
+  },
+  "orchestrator": {
+    "source": "CLAUDE.md",
+    "target_label": "~/.claude/CLAUDE.md",
+    "auto_append": true
+  }
+}

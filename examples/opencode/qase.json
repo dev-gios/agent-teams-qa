@@ -1,0 +1,16 @@
+{
+  "id": "opencode",
+  "name": "OpenCode",
+  "description": "Open-source agentic IDE",
+  "install": {
+    "linux": "$HOME/.config/opencode/skills",
+    "macos": "$HOME/.config/opencode/skills",
+    "wsl": "$HOME/.config/opencode/skills",
+    "windows": "$APPDATA/opencode/skills"
+  },
+  "orchestrator": {
+    "source": "opencode.json",
+    "target_label": "~/.config/opencode/opencode.json",
+    "auto_append": false
+  }
+}
