@@ -33,6 +33,27 @@ print_header() {
     echo -e "  ${BOLD}Detected:${NC} $(os_label)"
 }
 
+# Validate that a qase.json has required fields: id, name, install.$OS
+# Usage: validate_qase_json "path/to/qase.json"
+# Returns 1 if any required field is missing or empty.
+validate_qase_json() {
+    local json_file="$1"
+    local valid=0
+
+    require_json_val "$json_file" "id" "tool identifier" > /dev/null 2>&1 || valid=1
+    require_json_val "$json_file" "name" "tool name" > /dev/null 2>&1 || valid=1
+
+    # Check install path for the current OS
+    local install_path
+    install_path=$(get_install_path "$json_file" "$OS") || true
+    if [[ -z "$install_path" ]]; then
+        echo "ERROR: Missing required field 'install.$OS' in $json_file (install path for $OS)" >&2
+        valid=1
+    fi
+
+    return "$valid"
+}
+
 # Scan for available tools in examples/
 discover_tools() {
     TOOLS_IDS=()
@@ -42,13 +63,19 @@ discover_tools() {
     local count=0
     for tool_json in "$REPO_DIR"/examples/*/qase.json; do
         if [ -f "$tool_json" ]; then
+            # Validate required fields before adding to discovery
+            if ! validate_qase_json "$tool_json"; then
+                echo -e "${YELLOW}Warning: Skipping invalid tool: $tool_json${NC}" >&2
+                continue
+            fi
+
             local tool_dir
             tool_dir=$(dirname "$tool_json")
             local tool_id
             tool_id=$(get_json_val "$tool_json" "id")
             local tool_name
             tool_name=$(get_json_val "$tool_json" "name")
-            
+
             TOOLS_IDS+=("$tool_id")
             TOOLS_NAMES+=("$tool_name")
             TOOLS_DIRS+=("$tool_dir")
@@ -108,11 +135,11 @@ install_tool() {
     
     install_skills_to_path "$target_path" "$tool_name" "$SKILLS_SRC"
     
-    # Handle Orchestrator instructions
+    # Handle Orchestrator instructions (optional — some tools may not have one)
     local orch_source
-    orch_source=$(get_orchestrator_val "$json_path" "source")
+    orch_source=$(get_orchestrator_val "$json_path" "source") || true
     local orch_label
-    orch_label=$(get_orchestrator_val "$json_path" "target_label")
+    orch_label=$(get_orchestrator_val "$json_path" "target_label") || true
     
     if [[ -n "$orch_source" ]]; then
         echo -e "\n${YELLOW}Next step:${NC} Add the orchestrator to your ${BOLD}$orch_label${NC}"
@@ -137,7 +164,12 @@ discover_tools
 AGENT_FLAG=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --agent) AGENT_FLAG="$2"; shift 2 ;;
+        --agent)
+            if [[ -z "${2:-}" ]]; then
+                echo -e "${RED}Error: --agent requires a value (e.g., --agent claude-code)${NC}" >&2
+                exit 1
+            fi
+            AGENT_FLAG="$2"; shift 2 ;;
         *) shift ;;
     esac
 done
