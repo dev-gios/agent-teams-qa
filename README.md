@@ -1,6 +1,23 @@
-# QASE — QA-Squad-Excellence
+<p align="center">
+  <h1 align="center">QASE — QA-Squad-Excellence</h1>
+  <p align="center">
+    <strong>Agent-Team Orchestration for Code Quality Review</strong>
+    <br />
+    <em>A squad of specialized AI sub-agents that review your code in parallel — then produce a consensus verdict.</em>
+    <br />
+    <em>Zero dependencies. Pure Markdown. Works everywhere.</em>
+  </p>
+</p>
 
-An open-source agent-team orchestration framework for **code quality review**. QASE deploys a squad of specialized AI sub-agents that review your code in parallel for architecture, security, performance, accessibility, resilience, and test coverage — then produce a consensus verdict.
+<p align="center">
+  <a href="#quick-start">Quick Start</a> &bull;
+  <a href="#how-it-works">How It Works</a> &bull;
+  <a href="#commands">Commands</a> &bull;
+  <a href="#installation">Installation</a> &bull;
+  <a href="#supported-tools">Supported Tools</a>
+</p>
+
+---
 
 Built for [Claude Code](https://claude.ai/claude-code). Inspired by the skill/orchestrator patterns from [agent-teams-lite](https://github.com/Gentleman-Programming/agent-teams-lite).
 
@@ -57,7 +74,7 @@ cd agent-teams-qa
 bash scripts/install.sh
 ```
 
-The installer copies skills to `~/.claude/skills/`, appends the orchestrator to your `CLAUDE.md`, and sets everything up automatically.
+The installer detects your OS, asks which tool you use, and copies skills to the correct location. It discovers tools dynamically from `examples/*/qase.json` metadata.
 
 ### Supported Systems
 
@@ -73,19 +90,7 @@ QASE works with 7 AI coding tools:
 | **VS Code Copilot** | `.github/copilot-instructions.md` | `.vscode/skills/` |
 | **OpenCode** | `~/.config/opencode/opencode.json` | `~/.config/opencode/skills/` |
 
-For non-Claude systems, manually copy the orchestrator from `examples/{system}/` and skills to the appropriate directory.
-
-### Manual Install (Claude Code)
-
-```bash
-# Copy skills
-cp -r skills/qa-* ~/.claude/skills/
-mkdir -p ~/.claude/skills/_shared/qase
-cp skills/_shared/qase/*.md ~/.claude/skills/_shared/qase/
-
-# Add the orchestrator
-cat examples/claude-code/CLAUDE.md >> ~/.claude/CLAUDE.md
-```
+After installing skills, add the orchestrator instructions from `examples/{your-tool}/` to your tool's config file.
 
 ## Quick Start
 
@@ -150,6 +155,100 @@ QASE learns from your decisions:
 4. Future reviews skip known-accepted patterns
 5. Dismissals decay after 180 days (re-evaluated)
 
+### Example Flow
+
+```
+You: /qa-review --staged
+
+AI:  Detecting Engram... ✓ available, artifacts will be persisted.
+     Launching qa-scan...
+     ✓ 12 files changed, 3 categories detected
+       Risk level: HIGH (auth + database changes)
+       Activating: architect, security, advocate, performance, test-strategy
+       Skipping: inclusion (no UI changes)
+
+     Launching 5 specialists in parallel...
+     ✓ qa-architect: 1 BLOCKER, 2 WARNINGs
+     ✓ qa-security: 0 BLOCKERs, 1 WARNING
+     ✓ qa-advocate: 0 BLOCKERs, 3 WARNINGs
+     ✓ qa-performance: 1 BLOCKER, 0 WARNINGs
+     ✓ qa-test-strategy: 0 BLOCKERs, 2 WARNINGs
+
+     Launching qa-report (consensus engine)...
+
+     ## Review Complete: REJECT
+
+     **Review ID**: 2026-03-03-staged
+     **Risk Level**: HIGH
+     **Specialists**: 5 active, 1 skipped
+
+     ### Summary
+     - BLOCKERs: 2 (veto: 1 from architect)
+     - WARNINGs: 8
+     - INFOs: 3
+
+     ### Top Findings
+     1. BLOCKER: God class in AuthService (SRP violation) — qa-architect
+     2. BLOCKER: N+1 query in user listing — qa-performance
+     3. WARNING: Missing rate limiting on login endpoint — qa-security
+
+     Fix 2 BLOCKERs and re-run /qa-review
+```
+
+---
+
+## The Sub-Agents
+
+Each sub-agent is a `SKILL.md` file — pure Markdown instructions that any AI assistant can follow.
+
+| Sub-Agent | Skill File | What It Does |
+|-----------|-----------|-------------|
+| **Init** | `qa-init/SKILL.md` | Detects project stack, architecture DNA, quality tooling |
+| **Scanner** | `qa-scan/SKILL.md` | Ingests diffs, classifies by category, produces routing manifest |
+| **Architect** | `qa-architect/SKILL.md` | SOLID guardian, clean architecture. **Veto power** |
+| **Security** | `qa-security/SKILL.md` | OWASP Top 10, prompt injection, auth flaws. **Veto power** |
+| **Advocate** | `qa-advocate/SKILL.md` | "What if X fails?", resilience, chaos analysis |
+| **Inclusion** | `qa-inclusion/SKILL.md` | WCAG 2.1 AA, semantic HTML, screen reader support |
+| **Performance** | `qa-performance/SKILL.md` | N+1 queries, O(n^2), memory leaks, bundle size |
+| **Test Strategy** | `qa-test-strategy/SKILL.md` | Coverage gaps, test quality, missing edge cases |
+| **Report** | `qa-report/SKILL.md` | Consensus engine, deduplication, veto logic, verdict |
+| **Feedback** | `qa-feedback/SKILL.md` | Processes dismissals, builds institutional memory |
+
+### Shared Conventions
+
+All 10 skills reference six shared convention files in `skills/_shared/qase/` instead of inlining review logic. This removes duplication and ensures consistent behavior across the entire squad.
+
+| File | Purpose |
+|------|---------|
+| `severity-contract.md` | BLOCKER/WARNING/INFO levels, veto power rules, verdict logic |
+| `issue-format.md` | Standard finding format with metadata envelope for qa-report |
+| `routing-rules.md` | Category detection patterns, routing matrix, risk calculation |
+| `persistence-contract.md` | Mode resolution rules (engram/openspec/none), Engram detection |
+| `engram-convention.md` | Deterministic naming (`qase/{review-id}/{type}`), 2-step recovery, SDD bridge |
+| `openspec-convention.md` | File paths, directory structure, archive layout |
+
+### Sub-Agent Result Contract
+
+Each sub-agent returns a structured payload:
+
+```json
+{
+  "status": "ok | warning | blocked | failed",
+  "executive_summary": "short decision-grade summary",
+  "artifacts": [
+    {
+      "name": "architect-report",
+      "store": "engram | openspec | none",
+      "ref": "observation-id | file-path | null"
+    }
+  ],
+  "verdict_contribution": "APPROVE | APPROVE_WITH_WARNINGS | REJECT",
+  "risks": ["optional risk list"]
+}
+```
+
+---
+
 ## Persistence
 
 QASE supports three persistence modes:
@@ -160,11 +259,44 @@ QASE supports three persistence modes:
 | `openspec` | `qaspec/` in project | When you want file artifacts in git |
 | `none` | Nowhere | Quick one-off reviews |
 
-Default: Engram if available, otherwise none.
+Default: Engram if available (detected via `mem_stats()`), otherwise `none`. `openspec` is never chosen automatically — only when the user explicitly asks.
+
+---
 
 ## Architecture
 
 QASE uses a **fan-out/fan-in** pattern (unlike SDD's sequential DAG):
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  ORCHESTRATOR (your main agent)                          │
+│                                                          │
+│  Responsibilities:                                       │
+│  • Detect Engram availability (mem_stats)                │
+│  • Launch sub-agents via Task tool                       │
+│  • Show summaries to user                                │
+│  • Track state: which specialists reported, verdicts     │
+│                                                          │
+│  Context usage: MINIMAL (only state + summaries)         │
+└──────────────┬───────────────────────────────────────────┘
+               │
+               │ Task(subagent_type: 'general-purpose', prompt: 'Read skill...')
+               │
+    ┌──────────┴──────────────────────────────────────────┐
+    │                                                      │
+    ▼          ▼          ▼         ▼         ▼           ▼
+┌────────┐┌────────┐┌────────┐┌────────┐┌────────┐┌────────┐
+│  ARCH  ││SECURITY││ADVOCATE││INCLUS. ││ PERF   ││  TEST  │
+│        ││        ││        ││        ││        ││        │
+│ Fresh  ││ Fresh  ││ Fresh  ││ Fresh  ││ Fresh  ││ Fresh  │
+│context ││context ││context ││context ││context ││context │
+└────┬───┘└────┬───┘└────┬───┘└────┬───┘└────┬───┘└────┬───┘
+     └─────────┴─────────┴────┬────┴─────────┴─────────┘
+                              │
+                         ┌────▼─────┐
+                         │qa-report │  fan-in: dedup + veto + verdict
+                         └──────────┘
+```
 
 - **qa-scan** classifies changes and decides which specialists to activate
 - **Specialists** run in parallel — no data dependencies between them
@@ -172,19 +304,223 @@ QASE uses a **fan-out/fan-in** pattern (unlike SDD's sequential DAG):
 
 This means reviews are fast — specialists don't wait for each other.
 
-### Modular Installer Architecture
+### SDD Bridge (Cross-System Integration)
+
+When using `engram` mode and the verdict is REJECT or APPROVE WITH WARNINGS, qa-report generates an **actionable-issues** artifact. This bridges QASE with [SDD](https://github.com/Gentleman-Programming/agent-teams-lite) (or any fix-automation system).
+
+```
+QASE reviews → finds issues → persists actionable-issues → SDD discovers & creates fix proposals
+```
+
+SDD can search for these artifacts:
+```
+mem_search(query: "qase/actionable-issues", project: "{project}")
+```
+
+The bridge is **one-way** — QASE writes, SDD reads. No coupling between the systems.
+
+---
+
+## Installation
+
+Dedicated setup guides for all supported tools:
+
+- [Claude Code](#claude-code) — Full sub-agent support via Task tool
+- [OpenCode](#opencode) — Full sub-agent support via Task tool
+- [Gemini CLI](#gemini-cli) — Inline skill execution
+- [Codex](#codex) — Inline skill execution
+- [VS Code (Copilot)](#vs-code-copilot) — Agent mode with context files
+- [Antigravity](#antigravity) — Native skill support
+- [Cursor](#cursor) — Inline skill execution
+
+### Claude Code
+
+**1. Copy skills:**
+
+```bash
+# Using the install script
+./scripts/install.sh  # Choose Claude Code
+
+# Or manually
+cp -r skills/qa-* ~/.claude/skills/
+mkdir -p ~/.claude/skills/_shared/qase
+cp skills/_shared/qase/*.md ~/.claude/skills/_shared/qase/
+```
+
+**2. Add orchestrator to `~/.claude/CLAUDE.md`:**
+
+Append the contents of [`examples/claude-code/CLAUDE.md`](examples/claude-code/CLAUDE.md) to your existing `CLAUDE.md`.
+
+**3. Verify:**
+
+Open Claude Code and type `/qa-init` — it should recognize the command.
+
+---
+
+### OpenCode
+
+**1. Copy skills and commands:**
+
+```bash
+# Using the install script (installs both skills + commands)
+./scripts/install.sh  # Choose OpenCode
+
+# Or manually
+cp -r skills/qa-* ~/.config/opencode/skills/
+cp examples/opencode/commands/qa-*.md ~/.config/opencode/commands/
+```
+
+**2. Add orchestrator agent to `~/.config/opencode/opencode.json`:**
+
+Merge the `agent` block from [`examples/opencode/opencode.json`](examples/opencode/opencode.json) into your existing config.
+
+**3. Verify:**
+
+Open OpenCode, use the agent picker (Tab), choose `qase-orchestrator`, and type `/qa-init`.
+
+---
+
+### Gemini CLI
+
+**1. Copy skills:**
+
+```bash
+./scripts/install.sh  # Choose Gemini CLI
+
+# Or manually
+cp -r skills/qa-* ~/.gemini/skills/
+```
+
+**2. Add orchestrator to `~/.gemini/GEMINI.md`:**
+
+Append the contents of [`examples/gemini-cli/GEMINI.md`](examples/gemini-cli/GEMINI.md) to your Gemini system prompt file.
+
+**3. Verify:**
+
+Open Gemini CLI and type `/qa-init`.
+
+> **Note:** Gemini CLI doesn't have a native Task tool for sub-agent delegation. Skills work as inline instructions. For true sub-agent experience, use Claude Code or OpenCode.
+
+---
+
+### Codex
+
+**1. Copy skills:**
+
+```bash
+./scripts/install.sh  # Choose Codex
+
+# Or manually
+cp -r skills/qa-* ~/.codex/skills/
+```
+
+**2. Add orchestrator to `~/.codex/agents.md`:**
+
+Append the contents of [`examples/codex/agents.md`](examples/codex/agents.md).
+
+**3. Verify:**
+
+Open Codex and type `/qa-init`.
+
+---
+
+### VS Code (Copilot)
+
+**1. Copy skills to workspace:**
+
+```bash
+# Per-project (recommended)
+cp -r skills/qa-* ./your-project/.vscode/skills/
+
+# Or using the install script
+./scripts/install.sh  # Choose VS Code
+```
+
+**2. Add orchestrator instructions:**
+
+Append the contents of [`examples/vscode/copilot-instructions.md`](examples/vscode/copilot-instructions.md) to `.github/copilot-instructions.md`.
+
+**3. Verify:**
+
+Open VS Code Chat panel and type `/qa-init`.
+
+---
+
+### Antigravity
+
+**1. Copy skills:**
+
+```bash
+# Global (available across all projects)
+./scripts/install.sh  # Choose Antigravity
+
+# Or manually (global)
+cp -r skills/qa-* ~/.gemini/antigravity/skills/
+
+# Workspace-specific (per project)
+mkdir -p .agent/skills
+cp -r skills/qa-* .agent/skills/
+```
+
+**2. Add orchestrator instructions:**
+
+Add the orchestrator as a global rule in `~/.gemini/GEMINI.md`, or create a workspace rule at `.agent/rules/qase-orchestrator.md`.
+
+See [`examples/antigravity/qase-orchestrator.md`](examples/antigravity/qase-orchestrator.md) for the rule content.
+
+**3. Verify:**
+
+Open Antigravity and type `/qa-init`.
+
+---
+
+### Cursor
+
+**1. Copy skills:**
+
+```bash
+# Global
+./scripts/install.sh  # Choose Cursor
+
+# Or per-project
+cp -r skills/qa-* ./your-project/skills/
+```
+
+**2. Add orchestrator to `.cursorrules`:**
+
+Append the contents of [`examples/cursor/.cursorrules`](examples/cursor/.cursorrules) to your project's `.cursorrules` file.
+
+**3. Verify:**
+
+Open Cursor and type `/qa-init`.
+
+> **Note:** Cursor runs skills inline rather than as true sub-agents. For fresh-context delegation, use Claude Code or OpenCode.
+
+---
+
+### Other Tools
+
+The skills are pure Markdown. Any AI assistant that can read files can use them.
+
+1. **Copy skills** to wherever your tool reads instructions from.
+2. **Add orchestrator instructions** to your tool's system prompt or rules file.
+3. **Add a `qase.json`** to `examples/<your-tool>/` and the installer will discover it automatically.
+
+---
+
+## Modular Installer Architecture
 
 The installation system is built on a **discovery-based engine** that follows SOLID principles:
 
-- **Engine (`scripts/install.sh`)**: Agnostic orchestrator that discovers tools dynamically.
+- **Engine (`scripts/install.sh`)**: Agnostic orchestrator that discovers tools dynamically from `qase.json` metadata.
 - **Libraries (`scripts/lib/`)**: Modular components for OS detection, JSON parsing, and file operations.
 - **Metadata (`qase.json`)**: Each tool in `examples/` defines its own installation paths and orchestrator source.
 
-#### How to add a new tool
+### How to add a new tool
 
 1. Create a new directory in `examples/<your-tool>/`.
 2. Add your orchestrator file (e.g., `INSTRUCTIONS.md`).
-3. Create a `qase.json` file with the following schema:
+3. Create a `qase.json` file:
 
 ```json
 {
@@ -206,22 +542,30 @@ The installation system is built on a **discovery-based engine** that follows SO
 
 The installer will automatically detect your tool and include it in the selection menu.
 
+---
+
 ## Coexistence with SDD
 
-QASE uses the `qa-` prefix. SDD uses the `sdd-` prefix. Both share `skills/_shared/` conventions. They can coexist in the same `~/.claude/skills/` directory without conflict.
+QASE uses the `qa-` prefix. SDD uses the `sdd-` prefix. Both use isolated `_shared/` namespaces (`_shared/qase/` vs `_shared/`). They coexist in the same skills directory without conflict.
+
+When both are installed with Engram, QASE can bridge its findings to SDD via the `actionable-issues` artifact — SDD discovers issues and creates fix proposals automatically.
+
+---
 
 ## Project Structure
 
 ```
 agent-teams-qa/
-├── skills/
-│   ├── _shared/qase/               # QASE shared contracts (isolated from SDD)
-│   │   ├── persistence-contract.md
-│   │   ├── engram-convention.md
-│   │   ├── openspec-convention.md
-│   │   ├── severity-contract.md
-│   │   ├── issue-format.md
-│   │   └── routing-rules.md
+├── README.md
+├── LICENSE
+├── skills/                              ← The 10 sub-agent skill files + shared conventions
+│   ├── _shared/qase/                    ← Shared conventions (isolated from SDD)
+│   │   ├── persistence-contract.md      ← Mode resolution rules (engram/openspec/none)
+│   │   ├── engram-convention.md         ← Deterministic naming & recovery protocol
+│   │   ├── openspec-convention.md       ← File paths, directory structure, archive layout
+│   │   ├── severity-contract.md         ← BLOCKER/WARNING/INFO levels, veto power
+│   │   ├── issue-format.md              ← Standard finding format with metadata
+│   │   └── routing-rules.md             ← Category detection, routing matrix, risk calc
 │   ├── qa-init/SKILL.md
 │   ├── qa-scan/SKILL.md
 │   ├── qa-architect/SKILL.md
@@ -232,30 +576,72 @@ agent-teams-qa/
 │   ├── qa-test-strategy/SKILL.md
 │   ├── qa-report/SKILL.md
 │   └── qa-feedback/SKILL.md
-├── examples/
-│   ├── claude-code/CLAUDE.md
-│   ├── cursor/.cursorrules
-│   ├── gemini-cli/GEMINI.md
-│   ├── codex/agents.md
-│   ├── antigravity/qase-orchestrator.md
-│   ├── vscode/copilot-instructions.md
-│   └── opencode/
-│       ├── opencode.json
-│       └── commands/qa-*.md
-├── scripts/
-│   ├── install.sh
-│   ├── install_test.sh
-│   └── lint_skills.sh
-├── README.md
-└── LICENSE
+├── examples/                            ← Config examples per tool + qase.json metadata
+│   ├── claude-code/
+│   │   ├── CLAUDE.md                    ← Orchestrator instructions
+│   │   └── qase.json                    ← Tool metadata for installer
+│   ├── opencode/
+│   │   ├── opencode.json                ← Orchestrator agent config
+│   │   ├── qase.json
+│   │   └── commands/qa-*.md             ← 10 slash commands for OpenCode
+│   ├── gemini-cli/
+│   │   ├── GEMINI.md
+│   │   └── qase.json
+│   ├── codex/
+│   │   ├── agents.md
+│   │   └── qase.json
+│   ├── antigravity/
+│   │   ├── qase-orchestrator.md
+│   │   └── qase.json
+│   ├── vscode/
+│   │   ├── copilot-instructions.md
+│   │   └── qase.json
+│   └── cursor/
+│       ├── .cursorrules
+│       └── qase.json
+└── scripts/
+    ├── install.sh                       ← Discovery-based interactive installer
+    ├── install_test.sh                  ← Unit & integration tests for installer
+    ├── lint_skills.sh                   ← SKILL.md structure linter
+    └── lib/                             ← Modular installer libraries
+        ├── os_detect.sh                 ← OS detection + terminal colors
+        ├── json_parser.sh               ← Native JSON parser (no jq dependency)
+        └── installer_core.sh            ← File operations + skill copy logic
 ```
+
+---
+
+## Contributing
+
+PRs welcome. The skills are Markdown — easy to improve.
+
+**To add a new specialist:**
+1. Create `skills/qa-{name}/SKILL.md` following the existing format
+2. Add routing rules for it in `skills/_shared/qase/routing-rules.md`
+3. Update the orchestrator examples to include the new specialist
+4. Run `bash scripts/lint_skills.sh` to validate
+
+**To improve an existing specialist:**
+1. Edit the `SKILL.md` directly
+2. Run `bash scripts/lint_skills.sh` to validate
+3. Submit PR with before/after examples
+
+**To add a new tool:**
+1. Create `examples/<your-tool>/` with orchestrator file + `qase.json`
+2. The installer discovers it automatically
+
+---
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
 
-## Credits
+---
 
-Created by [dev-gios](https://github.com/dev-gios).
-
-Inspired by [agent-teams-lite](https://github.com/Gentleman-Programming/agent-teams-lite) by Gentleman Programming (used as reference for the skill/orchestrator pattern).
+<p align="center">
+  <strong>Created by <a href="https://github.com/dev-gios">dev-gios</a></strong>
+  <br />
+  <em>Inspired by <a href="https://github.com/Gentleman-Programming/agent-teams-lite">agent-teams-lite</a> by Gentleman Programming.</em>
+  <br />
+  <em>Because shipping without review is just vibe coding with extra steps.</em>
+</p>
