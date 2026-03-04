@@ -98,6 +98,7 @@ Some specialists operate **outside the code-diff pipeline** and are not routed b
 | Specialist | Trigger | Why Out-of-Band |
 |------------|---------|-----------------|
 | `qa-browser` | `/qa-browser <url> [flows]` | Tests a live running application via Chrome DevTools, not source code diffs |
+| `qa-visual` | `/qa-visual <url>` | Visual regression and design system compliance testing via Chrome DevTools, not source code diffs |
 
 Out-of-band specialists:
 - Do NOT have a column in the routing matrix (they don't analyze file changes)

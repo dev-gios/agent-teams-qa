@@ -80,6 +80,40 @@ Key differences from the standard format:
 - **Evidence** section is added — captures runtime proof (console output, network details, axe results)
 - **Category** uses browser-specific categories instead of code routing categories
 
+## Visual Testing Variant
+
+`qa-visual` uses an adapted finding format for visual issues discovered in a live application:
+
+```markdown
+### {SEVERITY}: {Title}
+
+**Agent**: qa-visual
+**URL**: `{page-url}`
+**Element**: `{element description or CSS selector}`
+**Viewport**: `{widthxheight}`
+**Category**: {design-system | visual-regression | responsive | typography | layout | color | animation}
+
+#### What Failed
+{Concise description of the visual issue observed}
+
+#### Why It Matters
+{Impact on real users — visual inconsistency, accessibility barrier, poor responsive experience, broken visual hierarchy}
+
+#### Senior Suggestion
+{Actionable CSS/HTML fix or design system recommendation — concrete code, not vague advice}
+
+#### Evidence
+{Screenshot reference, computed style values, contrast ratio calculation, or viewport comparison}
+
+#### References
+- {Relevant standard: WCAG 2.1 SC X.Y.Z, design system guideline, CSS specification, etc.}
+```
+
+Key differences from the Browser Testing Variant:
+- **Viewport** field added — visual findings are viewport-specific (e.g., `1440x900`, `375x812`)
+- **Category** uses visual-specific categories (`design-system`, `visual-regression`, `responsive`, `typography`, `layout`, `color`, `animation`) instead of browser-specific categories (`console-errors`, `network`, `accessibility`, `interaction`, `navigation`, `responsive`, `performance`, `user-flow`)
+- **Evidence** emphasizes computed style values, contrast ratio calculations, and viewport comparisons rather than console output or network request data
+
 ## Grouping
 
 Within a specialist's report, findings are grouped by severity:

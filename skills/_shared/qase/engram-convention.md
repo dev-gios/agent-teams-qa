@@ -46,6 +46,7 @@ scope:     project
 | `performance-report` | qa-performance | Performance analysis findings |
 | `test-strategy-report` | qa-test-strategy | Test strategy findings |
 | `browser-report` | qa-browser | Runtime browser testing findings |
+| `visual-report` | qa-visual | Visual regression and design system compliance findings |
 | `final-report` | qa-report | Consensus verdict |
 | `actionable-issues` | qa-report | Bridge artifact for SDD integration |
 | `feedback` | qa-feedback | Dismissal pattern (under feedback/ path) |

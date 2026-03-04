@@ -16,6 +16,7 @@ qaspec/
 │       ├── performance.md   <- from qa-performance
 │       ├── test-strategy.md <- from qa-test-strategy
 │       ├── browser.md       <- from qa-browser
+│       ├── visual.md        <- from qa-visual
 │       └── report.md        <- from qa-report (final verdict)
 ├── feedback/                <- Persistent feedback (survives across reviews)
 │   └── {agent}/
@@ -36,6 +37,7 @@ qaspec/
 | qa-performance | Creates | `qaspec/reviews/{review-id}/performance.md` |
 | qa-test-strategy | Creates | `qaspec/reviews/{review-id}/test-strategy.md` |
 | qa-browser | Creates | `qaspec/reviews/{review-id}/browser.md` |
+| qa-visual | Creates | `qaspec/reviews/{review-id}/visual.md` |
 | qa-report | Creates | `qaspec/reviews/{review-id}/report.md` |
 | qa-feedback | Creates | `qaspec/feedback/{agent}/{pattern-slug}.md` |
 
