@@ -6,6 +6,8 @@
     <em>A squad of specialized AI sub-agents that review your code in parallel — then produce a consensus verdict.</em>
     <br />
     <em>Zero dependencies. Pure Markdown. Works everywhere.</em>
+    <br />
+    <em>Optional: <a href="https://github.com/nicholasgriffintn/chrome-devtools-mcp">Chrome DevTools MCP</a> + <a href="https://github.com/gentleman-programming/engram">Engram</a> unlock runtime visual &amp; browser testing.</em>
   </p>
 </p>
 
@@ -49,7 +51,7 @@ QASE doesn't impose architecture — it vets code for quality using the project'
 
 **Smart routing**: Not every change needs every specialist. CSS-only changes get Inclusion + Architect. Auth changes get the full squad. qa-scan decides.
 
-## The Squad (7 Specialists)
+## The Squad (7 Static + 2 Runtime Specialists)
 
 | Specialist | Role | Veto Power |
 |-----------|------|:----------:|
@@ -60,6 +62,15 @@ QASE doesn't impose architecture — it vets code for quality using the project'
 | **qa-performance** | N+1 queries, O(n^2), memory leaks | No |
 | **qa-test-strategy** | Coverage gaps, test quality | No |
 | **qa-report** | Consensus engine, dedup, verdict | — |
+
+**Runtime specialists** (require [Chrome DevTools MCP](https://github.com/nicholasgriffintn/chrome-devtools-mcp)):
+
+| Specialist | Role | Scope |
+|-----------|------|-------|
+| **qa-browser** | Console errors, network health, interactions, Core Web Vitals | Live URL |
+| **qa-visual** | Design system compliance, WCAG contrast, responsive layout, animations | Live URL |
+
+> qa-browser answers "does the app **work**?", qa-visual answers "does the app **look** correct?"
 
 Plus: **qa-init** (stack detection), **qa-scan** (triage/routing), **qa-feedback** (institutional memory).
 
@@ -121,6 +132,8 @@ After installing skills, add the orchestrator instructions from `examples/{your-
 | `/qa-inclusion [scope]` | Solo: Accessibility analysis |
 | `/qa-performance [scope]` | Solo: Performance analysis |
 | `/qa-test-strategy [scope]` | Solo: Test strategy analysis |
+| `/qa-browser [url]` | Solo: Runtime functional testing (requires Chrome DevTools MCP) |
+| `/qa-visual [url]` | Solo: Visual regression & design system audit (requires Chrome DevTools MCP) |
 | `/qa-feedback` | Process dismissals, build institutional memory |
 
 ### Scope Syntax
@@ -213,10 +226,12 @@ Each sub-agent is a `SKILL.md` file — pure Markdown instructions that any AI a
 | **Test Strategy** | `qa-test-strategy/SKILL.md` | Coverage gaps, test quality, missing edge cases |
 | **Report** | `qa-report/SKILL.md` | Consensus engine, deduplication, veto logic, verdict |
 | **Feedback** | `qa-feedback/SKILL.md` | Processes dismissals, builds institutional memory |
+| **Browser** | `qa-browser/SKILL.md` | Runtime functional testing via Chrome DevTools MCP |
+| **Visual** | `qa-visual/SKILL.md` | Visual regression & design system compliance via Chrome DevTools MCP |
 
 ### Shared Conventions
 
-All 10 skills reference six shared convention files in `skills/_shared/qase/` instead of inlining review logic. This removes duplication and ensures consistent behavior across the entire squad.
+All 12 skills reference six shared convention files in `skills/_shared/qase/` instead of inlining review logic. This removes duplication and ensures consistent behavior across the entire squad.
 
 | File | Purpose |
 |------|---------|
@@ -246,6 +261,47 @@ Each sub-agent returns a structured payload:
   "risks": ["optional risk list"]
 }
 ```
+
+---
+
+## Runtime Prerequisites (for qa-browser & qa-visual)
+
+The static specialists (architect, security, etc.) work out of the box — no extra dependencies. The two **runtime specialists** require external MCP servers:
+
+| Dependency | Required For | What It Does |
+|-----------|-------------|-------------|
+| [Chrome DevTools MCP](https://github.com/nicholasgriffintn/chrome-devtools-mcp) | qa-browser, qa-visual | Connects to a running browser for screenshots, DOM inspection, network monitoring, viewport resizing |
+| [Engram](https://github.com/gentleman-programming/engram) | All (recommended) | Persists reports across sessions, enables feedback loop and SDD bridge |
+
+### Setup
+
+**1. Chrome DevTools MCP** — add to your MCP config (`claude_desktop_config.json` or `.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/chrome-devtools-mcp"]
+    }
+  }
+}
+```
+
+**2. Engram** — add to your MCP config:
+
+```json
+{
+  "mcpServers": {
+    "engram": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/engram-mcp"]
+    }
+  }
+}
+```
+
+> Without Chrome DevTools MCP, `/qa-browser` and `/qa-visual` will report a BLOCKER and stop. Without Engram, reviews still work but results are inline-only (no cross-session persistence or feedback loop).
 
 ---
 
@@ -558,7 +614,7 @@ When both are installed with Engram, QASE can bridge its findings to SDD via the
 agent-teams-qa/
 ├── README.md
 ├── LICENSE
-├── skills/                              ← The 10 sub-agent skill files + shared conventions
+├── skills/                              ← The 12 sub-agent skill files + shared conventions
 │   ├── _shared/qase/                    ← Shared conventions (isolated from SDD)
 │   │   ├── persistence-contract.md      ← Mode resolution rules (engram/openspec/none)
 │   │   ├── engram-convention.md         ← Deterministic naming & recovery protocol
@@ -575,7 +631,9 @@ agent-teams-qa/
 │   ├── qa-performance/SKILL.md
 │   ├── qa-test-strategy/SKILL.md
 │   ├── qa-report/SKILL.md
-│   └── qa-feedback/SKILL.md
+│   ├── qa-feedback/SKILL.md
+│   ├── qa-browser/SKILL.md                ← Runtime: functional testing (Chrome DevTools MCP)
+│   └── qa-visual/SKILL.md                 ← Runtime: visual regression (Chrome DevTools MCP)
 ├── examples/                            ← Config examples per tool + qase.json metadata
 │   ├── claude-code/
 │   │   ├── CLAUDE.md                    ← Orchestrator instructions

@@ -46,6 +46,74 @@ Every finding produced by a QASE specialist MUST follow this exact format:
 8. **Senior Suggestion** MUST include actual code — not "consider refactoring" but the actual refactored code. If the fix is architectural (not a code snippet), describe the structural change with a before/after diagram.
 9. **References** link to established standards — not opinions
 
+## Browser Testing Variant
+
+`qa-browser` uses an adapted finding format for runtime issues discovered in a live application:
+
+```markdown
+### {SEVERITY}: {Title}
+
+**Agent**: qa-browser
+**URL**: `{page-url}`
+**Element**: `{element description or CSS selector}`
+**Category**: {console-errors | network | accessibility | interaction | navigation | responsive | performance | user-flow}
+
+#### What Failed
+{Concise description of the runtime issue observed}
+
+#### Why It Matters
+{Impact on real users — broken functionality, inaccessibility, poor experience}
+
+#### Senior Suggestion
+{Actionable fix — code snippet, configuration change, or specific remediation}
+
+#### Evidence
+{Console error text, network request details, axe-core violation, or screenshot reference}
+
+#### References
+- {Relevant standard: WCAG 2.1 SC X.Y.Z, Web Vitals threshold, OWASP rule, etc.}
+```
+
+Key differences from the standard format:
+- **URL** replaces **File** — findings reference the page URL, not a source file
+- **Element** replaces **Lines** — findings reference DOM elements, not line numbers
+- **Evidence** section is added — captures runtime proof (console output, network details, axe results)
+- **Category** uses browser-specific categories instead of code routing categories
+
+## Visual Testing Variant
+
+`qa-visual` uses an adapted finding format for visual issues discovered in a live application:
+
+```markdown
+### {SEVERITY}: {Title}
+
+**Agent**: qa-visual
+**URL**: `{page-url}`
+**Element**: `{element description or CSS selector}`
+**Viewport**: `{widthxheight}`
+**Category**: {design-system | visual-regression | responsive | typography | layout | color | animation}
+
+#### What Failed
+{Concise description of the visual issue observed}
+
+#### Why It Matters
+{Impact on real users — visual inconsistency, accessibility barrier, poor responsive experience, broken visual hierarchy}
+
+#### Senior Suggestion
+{Actionable CSS/HTML fix or design system recommendation — concrete code, not vague advice}
+
+#### Evidence
+{Screenshot reference, computed style values, contrast ratio calculation, or viewport comparison}
+
+#### References
+- {Relevant standard: WCAG 2.1 SC X.Y.Z, design system guideline, CSS specification, etc.}
+```
+
+Key differences from the Browser Testing Variant:
+- **Viewport** field added — visual findings are viewport-specific (e.g., `1440x900`, `375x812`)
+- **Category** uses visual-specific categories (`design-system`, `visual-regression`, `responsive`, `typography`, `layout`, `color`, `animation`) instead of browser-specific categories (`console-errors`, `network`, `accessibility`, `interaction`, `navigation`, `responsive`, `performance`, `user-flow`)
+- **Evidence** emphasizes computed style values, contrast ratio calculations, and viewport comparisons rather than console output or network request data
+
 ## Grouping
 
 Within a specialist's report, findings are grouped by severity:

@@ -61,6 +61,8 @@ Before launching any sub-agent, detect Engram availability:
 | `/qa-inclusion [scope]` | Solo: Accessibility analysis only |
 | `/qa-performance [scope]` | Solo: Performance analysis only |
 | `/qa-test-strategy [scope]` | Solo: Test strategy analysis only |
+| `/qa-browser [url] [flows]` | Solo: Browser runtime testing |
+| `/qa-visual [url]` | Solo: Visual regression and design system compliance testing |
 | `/qa-feedback` | Process dismissals from last review |
 
 ### Scope Syntax
@@ -74,6 +76,8 @@ Before launching any sub-agent, detect Engram availability:
 | `--full` | Force all specialists (modifier) |
 | `--deep` | Include INFO findings in report (modifier) |
 
+Note: `/qa-browser` and `/qa-visual` use a **URL** as scope (e.g., `https://localhost:3000`) instead of file/diff scope.
+
 ### Command → Skill Mapping
 | Command | Skill to Invoke |
 |---------|----------------|
@@ -86,6 +90,8 @@ Before launching any sub-agent, detect Engram availability:
 | `/qa-inclusion [scope]` | qa-inclusion (solo, skip scan) |
 | `/qa-performance [scope]` | qa-performance (solo, skip scan) |
 | `/qa-test-strategy [scope]` | qa-test-strategy (solo, skip scan) |
+| `/qa-browser [url]` | qa-browser (solo, skip scan) |
+| `/qa-visual [url]` | qa-visual (solo, skip scan) |
 | `/qa-feedback` | qa-feedback |
 
 ### Available Skills
@@ -99,6 +105,8 @@ Before launching any sub-agent, detect Engram availability:
 - `qa-test-strategy/SKILL.md` — Test Strategist
 - `qa-report/SKILL.md` — Consensus engine + final report
 - `qa-feedback/SKILL.md` — Feedback loop + institutional memory
+- `qa-browser/SKILL.md` — Browser Inspector (runtime testing via Chrome DevTools)
+- `qa-visual/SKILL.md` — Visual Inspector (visual regression/design system compliance)
 
 ### Orchestrator Rules
 1. You NEVER read source code directly — sub-agents do that
@@ -109,7 +117,7 @@ Before launching any sub-agent, detect Engram availability:
 6. Keep your context MINIMAL — pass review IDs and scope to sub-agents, not code
 7. NEVER run review work inline as the lead. Always delegate.
 8. CRITICAL: `/qa-review` is a META-COMMAND handled by YOU (the orchestrator), NOT a skill. Process it by launching qa-scan, then specialists in parallel, then qa-report.
-9. Solo commands (`/qa-architect`, `/qa-security`, etc.) launch ONE specialist directly without qa-scan.
+9. Solo commands (`/qa-architect`, `/qa-security`, `/qa-browser`, `/qa-visual`, etc.) launch ONE specialist directly without qa-scan.
 
 ### Sub-Agent Launching Pattern
 
@@ -180,7 +188,7 @@ type:      architecture
 project:   {detected project name}
 ```
 
-Artifact types: `scan`, `architect-report`, `advocate-report`, `security-report`, `inclusion-report`, `performance-report`, `test-strategy-report`, `final-report`, `actionable-issues`
+Artifact types: `scan`, `architect-report`, `advocate-report`, `security-report`, `inclusion-report`, `performance-report`, `test-strategy-report`, `browser-report`, `visual-report`, `final-report`, `actionable-issues`
 
 Project init uses: `qa-init/{project-name}`
 Feedback uses: `qase/{project}/feedback/{agent}/{pattern-slug}`
@@ -236,7 +244,7 @@ mem_search(query: "qase/actionable-issues", project: "{project}")
 
 This enables the workflow: QASE reviews → finds issues → SDD creates proposals to fix them.
 
-The orchestrator does NOT need to trigger SDD — it only persists the bridge artifact. SDD discovers it on its own when the user runs `/sdd:new` or `/sdd:explore`.
+The orchestrator does NOT need to trigger SDD — it only persists the bridge artifact. SDD discovers it on its own when the user runs `/sdd-new` or `/sdd-explore`.
 
 ### When to Suggest QASE
 If the user just made substantial changes and asks for review, suggest QASE:
