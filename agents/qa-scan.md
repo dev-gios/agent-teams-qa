@@ -51,5 +51,6 @@ Return a structured result with these fields:
 - `executive_summary`: one sentence — routing manifest summary
 - `artifacts`: the routing manifest payload returned to the orchestrator (the orchestrator persists it)
 - `verdict_contribution`: `CLEAN` | `HAS_WARNINGS` | `HAS_BLOCKERS`
+- `runtime_recommendation`: forwarded advisory block (`recommended`, `reason`, `triggering_categories`, `specialists`, `candidate_targets`) — the orchestrator uses this to decide whether to launch runtime specialists; `qa-scan` never emits `UNVERIFIED`
 - `risks`: any unresolvable scope ambiguity
 - `skill_resolution`: `paths-injected` if exact skill paths were provided, otherwise `none`

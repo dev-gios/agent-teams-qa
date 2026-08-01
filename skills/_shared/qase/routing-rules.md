@@ -91,21 +91,44 @@ medium:   database or api or business, or 5+ files changed
 low:      ui-only, test-only, config-only, docs-only
 ```
 
-## Out-of-Band Specialists
+## Runtime Recommendation
 
-Some specialists operate **outside the code-diff pipeline** and are not routed by `qa-scan`:
+`qa-scan` produces a `runtime_recommendation` block alongside the routing manifest. This is **advisory
+only** — it tells the orchestrator which runtime specialists would be useful, but does not activate
+them. The orchestrator decides whether to launch them based on the preflight cache, URL availability,
+and user consent (see Sequence Diagram 1 in `design.md`).
 
-| Specialist | Trigger | Backend | Oracle Tiers | Veto | Why Out-of-Band |
-|------------|---------|---------|--------------|------|-----------------|
-| `qa-browser` | `/qa-browser <url> [flows]` | agent-browser CLI (via Bash) | L1–L4 | Tier-gated: L1/L2/L3-schema BLOCKERs only | Tests a live running application; not source code diffs |
-| `qa-visual` | `/qa-visual <url>` | agent-browser CLI (via Bash) | Predominantly L4 | None | Visual regression and design system compliance; not source code diffs |
+### Runtime Trigger Table
 
-Out-of-band specialists:
-- Do NOT have a column in the routing matrix (they don't analyze file changes)
-- Are NOT activated by `qa-scan` — they are launched directly via solo commands
-- The "Minimum Viable Squad" rule only applies to code-change reviews, not to out-of-band specialists
-- Can still use dismissed patterns from `qa-feedback` for their own finding categories
-- **Require `runtime_available: true` in the preflight cache.** When the cache is absent, stale (> TTL), or `runtime_available: false`, they return `status: skipped` with `verdict_contribution: CLEAN`, the cached reason, and **zero** runtime findings. Fabricating findings from static reading is prohibited.
+| Category | Recommended specialists | Notes |
+|----------|------------------------|-------|
+| `ui` | `qa-browser`, `qa-visual` | Rendered UI changes benefit from both functional and visual runtime checks |
+| `api` | `qa-browser` | Network request validation and runtime API surface checks |
+| `auth` | `qa-browser` | Auth flows, cookie handling, and session state require a live runtime |
+| `business` | — (no recommendation) | Business logic is covered by static specialists; runtime adds noise |
+| all others | — (no recommendation) | `test`, `infra`, `config`, `docs`, `database` carry no runtime surface |
+
+### `runtime_recommendation` Manifest Block
+
+`qa-scan` appends this block to its result envelope when at least one triggering category is
+detected. When no triggering category is present, `recommended: false` MUST be emitted explicitly
+(an absent block is indistinguishable from a pre-change `qa-scan`).
+
+```yaml
+runtime_recommendation:
+  recommended: true | false
+  reason: "ui and auth categories detected — page rendering and auth flows may be affected"
+  triggering_categories: [ui, auth]          # subset of detected categories that triggered
+  specialists: [qa-browser, qa-visual]       # specialists the orchestrator should consider launching
+  candidate_targets: []                      # URL hints for display only; NEVER auto-navigated
+```
+
+### No-Auto-Start Rule
+
+The orchestrator MUST NOT execute detected_start_hints[].command. A start-command hint says what
+command **would** start the application — it does not mean the application **is** running. The
+orchestrator resolves a URL and, if needed, asks the user once. It never starts the application
+automatically.
 
 ## Oracle-Tier-Aware Routing
 

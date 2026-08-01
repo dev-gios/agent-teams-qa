@@ -107,6 +107,48 @@ Using the routing matrix from `skills/_shared/qase/routing-rules.md`:
 7. Exception: if ONLY "docs" category detected → skip all → APPROVE (clean)
 ```
 
+### Step 4b: Produce Runtime Recommendation
+
+After routing specialist assignments, evaluate the detected categories against the runtime trigger
+table in `skills/_shared/qase/routing-rules.md` and produce a `runtime_recommendation` block.
+
+```
+TRIGGERING categories: ui, api, auth
+NON-TRIGGERING categories: business, test, infra, config, docs, database (and any unrecognised)
+
+IF any detected category is in {ui, api, auth}:
+    recommended = true
+    triggering_categories = [intersection of detected categories with {ui, api, auth}]
+    specialists = []
+    IF "ui" in triggering_categories   → add qa-browser AND qa-visual to specialists
+    IF "api" in triggering_categories  → add qa-browser (if not already added)
+    IF "auth" in triggering_categories → add qa-browser (if not already added)
+    reason = "{categories} detected — affected pages or endpoints may need runtime verification"
+    candidate_targets = []   ← display hints only; NEVER auto-navigated
+ELSE:
+    recommended = false
+    triggering_categories = []
+    specialists = []
+    reason = "no ui/api/auth categories detected — runtime verification not required"
+    candidate_targets = []
+```
+
+`qa-scan` MUST NOT assert `runtime_available`, resolve any URL, or check whether a runtime
+environment exists. The recommendation is diff-derived and identical on all install targets.
+`recommended: false` MUST be emitted explicitly — an absent block is indistinguishable from a
+pre-change `qa-scan`.
+
+Append the following block to the routing manifest:
+
+```yaml
+runtime_recommendation:
+  recommended: true | false
+  reason: "{reason}"
+  triggering_categories: [{triggering-categories}]
+  specialists: [{list}]
+  candidate_targets: []
+```
+
 ### Step 5: Produce Routing Manifest
 
 Generate the manifest in this format:
@@ -176,6 +218,12 @@ activated_specialists: [{list}]
 skipped_specialists: [{list}]
 risk_level: {low|medium|high|critical}
 dismissed_patterns: [{list by agent}]
+runtime_recommendation:
+  recommended: true | false
+  reason: "{runtime-reason}"
+  triggering_categories: [{triggering-categories}]
+  specialists: [{list}]
+  candidate_targets: []
 flags:
   full: {true|false}
   deep: {true|false}

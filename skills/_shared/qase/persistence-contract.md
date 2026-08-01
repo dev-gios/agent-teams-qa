@@ -55,7 +55,7 @@ See also `skills/_shared/qase/oracle-contract.md` for the tier semantics that ru
 
 **TTL / freshness rule**: a cache entry whose `probed_at` is older than `ttl_hours` (default 24) is treated as absent. When treated as absent, the runtime specialist reports `runtime_available: unknown — preflight cache stale, re-run /qa-init` and refuses rather than guessing. A cached `false` never permanently disables runtime QA.
 
-**Refusal rule**: when `runtime_available` is not `true`, `qa-browser` and `qa-visual` MUST return `status: skipped` with `verdict_contribution: CLEAN`, a single INFO finding with the cached reason, and **zero** runtime findings. Fabricating findings from static reading when the runtime backend is unavailable is prohibited.
+**Refusal rule**: when `runtime_available` is not `true`, `qa-browser` and `qa-visual` MUST return `status: skipped` with a single INFO finding with the cached reason, and **zero** runtime findings. Fabricating findings from static reading when the runtime backend is unavailable is prohibited. The `verdict_contribution` depends on launch context: if `launched_under_recommendation: true` (specialist was dispatched by the orchestrator under a `runtime_recommendation`), emit `UNVERIFIED`; otherwise emit `CLEAN` (solo `/qa-browser <url>` invocations retain `CLEAN` — R5 containment).
 
 ### Preflight Cache Schema (openspec: `qaspec/preflight-cache.yaml`)
 
@@ -152,3 +152,31 @@ This controls output verbosity but does NOT affect what gets persisted — alway
 - `concise`: BLOCKERs and WARNINGs only, no code suggestions
 - `standard`: BLOCKERs, WARNINGs, and top INFO findings with code suggestions
 - `deep`: All findings including INFO, full code suggestions, references
+
+## Review-Scoped Runtime Coverage
+
+This section tracks whether runtime verification ran for a given review. It is **separate** from the
+preflight cache above — the preflight cache describes the environment; this section describes the
+review outcome.
+
+### `runtime_unverified_reason` Enum
+
+When `runtime_coverage` is `unverified`, the orchestrator records one of these values in the review
+context and forwards it to `qa-report`:
+
+| Value | Meaning |
+|-------|---------|
+| `null` | Coverage was verified or not required — no reason to record |
+| `"bash-unavailable"` | Value-copied from preflight `unavailable_reason`; the environment has no Bash |
+| `"agent-browser-not-installed"` | Value-copied from preflight; agent-browser CLI not found |
+| `"no-chrome-binary"` | Value-copied from preflight; no Chrome-compatible binary detected |
+| `"smoke-test-failed"` | Value-copied from preflight; smoke test exited non-zero |
+| `"preflight-cache-absent"` | No preflight cache exists — `/qa-init` has not been run |
+| `"preflight-cache-stale"` | Cache exists but `probed_at` is older than `ttl_hours` |
+| `"no-url-resolved"` | URL resolution (Decision C) produced no result in an unattended run |
+| `"user-declined"` | User answered "no" or "skip" at the URL resolution prompt |
+
+The four value-copied spellings (`bash-unavailable`, `agent-browser-not-installed`, `no-chrome-binary`,
+`smoke-test-failed`) are copied from the preflight `unavailable_reason` enum above. They are **copied,
+not imported** — the frozen preflight enum and truth table above are untouched. `user-declined` has
+no preflight row and never will; it is a review-time event, not an environment fact.

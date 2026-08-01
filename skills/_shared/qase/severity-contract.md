@@ -2,7 +2,14 @@
 
 ## Severity Levels
 
-Every finding produced by a QASE specialist MUST use exactly one of these severity levels:
+Every finding produced by a QASE specialist MUST use exactly one of these severity levels.
+
+`verdict_contribution` enum values: `CLEAN` | `HAS_WARNINGS` | `HAS_BLOCKERS` | `UNVERIFIED`
+
+`UNVERIFIED` is not a finding severity and is never returned by static specialists. It is the
+contribution emitted by `qa-browser` or `qa-visual` when `launched_under_recommendation: true`
+and the specialist refused (runtime unavailable, cache stale, etc.). It carries **zero** findings
+and changes only the rendered verdict scope string, never the severity counts.
 
 | Severity | Meaning | Verdict Impact | Display |
 |----------|---------|----------------|---------|
@@ -70,6 +77,21 @@ VERDICT:
   ELSE:
     → APPROVE
 ```
+
+### Runtime Coverage Suffix
+
+`base_verdict` is computed by Gate 1 + Gate 2 above and is NEVER altered by coverage.
+
+```
+runtime_suffix(runtime_coverage, base_verdict):
+    IF runtime_coverage != unverified            → ""     (empty string)
+    IF base_verdict IN {REJECT, REJECT (VETO)}   → ""     (REJECT understates nothing)
+    ELSE                                         → " (STATIC ONLY)"
+
+rendered_verdict = base_verdict + runtime_suffix(runtime_coverage, base_verdict)
+```
+
+The `(STATIC ONLY)` literal is owned exclusively by this file. It MUST NOT be restated elsewhere.
 
 ## Severity Assignment Guidelines
 

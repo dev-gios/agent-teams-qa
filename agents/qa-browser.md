@@ -56,6 +56,6 @@ Return a structured result with these fields:
 - `status`: `done` | `blocked` | `partial` | `skipped`
 - `executive_summary`: one sentence — BLOCKER / WARNING / INFO counts or skip reason
 - `artifacts`: the report payload returned to the orchestrator (the orchestrator persists it)
-- `verdict_contribution`: `CLEAN` | `HAS_WARNINGS` | `HAS_BLOCKERS`
+- `verdict_contribution`: `CLEAN` | `HAS_WARNINGS` | `HAS_BLOCKERS` | `UNVERIFIED` (emitted only when `launched_under_recommendation: true` and runtime is unavailable — carries zero findings)
 - `risks`: unresolved BLOCKERs that will force a REJECT
 - `skill_resolution`: `paths-injected` if exact skill paths were provided, otherwise `none`

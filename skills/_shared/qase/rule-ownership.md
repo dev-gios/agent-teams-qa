@@ -52,6 +52,17 @@ positive fixture otherwise.
 | forces-reject | skills/_shared/qase/severity-contract.md | forces REJECT | skills/**,agents/** | — | 0 |
 | forces-reject-verdict | skills/_shared/qase/severity-contract.md | force a REJECT verdict | skills/**,agents/** | — | 0 |
 | tier-ceiling-l3i | skills/_shared/qase/oracle-contract.md | A BLOCKER arriving at L3-inferred | skills/**,agents/** | — | 0 |
+| no-auto-start | skills/_shared/qase/routing-rules.md | MUST NOT execute detected_start_hints | skills/**,agents/**,examples/** | — | 0 |
+| static-only-qualifier | skills/_shared/qase/severity-contract.md | (STATIC ONLY) | skills/**,agents/** | — | 0 |
+<!-- /coherence:table -->
+
+<!-- coherence:table required -->
+| check_id | literal | files | min_count |
+|----------|---------|-------|-----------|
+| orch-no-auto-start | never starts the application | examples/claude-code/CLAUDE.md,examples/vscode/copilot-instructions.md,examples/cursor/.cursorrules,examples/gemini-cli/GEMINI.md,examples/codex/agents.md,examples/antigravity/qase-orchestrator.md | 1 |
+| orch-url-flag | --url | examples/claude-code/CLAUDE.md,examples/vscode/copilot-instructions.md,examples/cursor/.cursorrules,examples/gemini-cli/GEMINI.md,examples/codex/agents.md,examples/antigravity/qase-orchestrator.md | 1 |
+| orch-url-precedence | ### Runtime URL Resolution (ADR-C) | examples/claude-code/CLAUDE.md,examples/vscode/copilot-instructions.md,examples/cursor/.cursorrules,examples/gemini-cli/GEMINI.md,examples/codex/agents.md,examples/antigravity/qase-orchestrator.md | 1 |
+| orch-runtime-step | Step 2b | examples/claude-code/CLAUDE.md,examples/vscode/copilot-instructions.md,examples/cursor/.cursorrules,examples/gemini-cli/GEMINI.md,examples/codex/agents.md,examples/antigravity/qase-orchestrator.md | 1 |
 <!-- /coherence:table -->
 
 <!-- coherence:table forbidden -->
@@ -124,6 +135,9 @@ positive fixture otherwise.
 | {unit} | descriptive | — | — |
 | {url-pattern} | descriptive | — | — |
 | {verdict} | descriptive | — | — |
+| {runtime_suffix} | derived | skills/_shared/qase/severity-contract.md | ### Runtime Coverage Suffix |
+| {triggering-categories} | descriptive | — | — |
+| {runtime-reason} | descriptive | — | — |
 | {viewport_a} | descriptive | — | — |
 | {viewport_b} | descriptive | — | — |
 | {width} | descriptive | — | — |

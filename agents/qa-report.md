@@ -56,5 +56,7 @@ Return a structured result with these fields:
 - `executive_summary`: one sentence — final verdict and total BLOCKER / WARNING / INFO counts
 - `artifacts`: the report payload returned to the orchestrator (the orchestrator persists it)
 - `verdict_contribution`: `CLEAN` | `HAS_WARNINGS` | `HAS_BLOCKERS`
+- `runtime_coverage`: `verified` | `not-required` | `unverified` — resolved by Step 3b Coverage Resolution
+- `runtime_unverified_reason`: one value from `persistence-contract.md` `runtime_unverified_reason` enum, or `null`
 - `risks`: any unresolved BLOCKERs forcing REJECT
 - `skill_resolution`: `paths-injected` if exact skill paths were provided, otherwise `none`

@@ -56,6 +56,6 @@ Return a structured result with these fields:
 - `status`: `done` | `blocked` | `partial` | `skipped`
 - `executive_summary`: one sentence — WARNING / INFO counts (no BLOCKERs)
 - `artifacts`: the report payload returned to the orchestrator (the orchestrator persists it)
-- `verdict_contribution`: `CLEAN` | `HAS_WARNINGS` (never HAS_BLOCKERS — see rule-ownership.md)
+- `verdict_contribution`: `CLEAN` | `HAS_WARNINGS` | `UNVERIFIED` (emitted only when `launched_under_recommendation: true` and runtime is unavailable — carries zero findings; never HAS_BLOCKERS — see rule-ownership.md)
 - `risks`: design drift requiring follow-up
 - `skill_resolution`: `paths-injected` if exact skill paths were provided, otherwise `none`

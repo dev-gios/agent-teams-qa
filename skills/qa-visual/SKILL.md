@@ -51,15 +51,18 @@ PRECONDITION — read preflight cache:
 ├── openspec: read qaspec/preflight-cache.yaml
 ├── engram:   mem_search("qa-init/{project}/preflight") → mem_get_observation(id)
 ├── If cache absent:
-│   → return status: skipped, verdict_contribution: CLEAN
+│   → return status: skipped
+│   → verdict_contribution: UNVERIFIED (if launched_under_recommendation: true) | CLEAN (otherwise)
 │   → one INFO finding: "Runtime backend status unknown — run /qa-init to establish preflight cache"
 │   → ZERO runtime findings. Do NOT fabricate findings from static reading.
 ├── If cache stale (> ttl_hours):
-│   → return status: skipped, verdict_contribution: CLEAN
+│   → return status: skipped
+│   → verdict_contribution: UNVERIFIED (if launched_under_recommendation: true) | CLEAN (otherwise)
 │   → one INFO finding: "runtime_available: unknown — preflight cache stale, re-run /qa-init"
 │   → ZERO runtime findings. Do NOT fabricate findings from static reading.
 ├── If runtime_available != true (cache present and fresh but runtime unavailable):
-│   → return status: skipped, verdict_contribution: CLEAN
+│   → return status: skipped
+│   → verdict_contribution: UNVERIFIED (if launched_under_recommendation: true) | CLEAN (otherwise)
 │   → one INFO finding: "Runtime backend unavailable: {cached unavailable_reason}"
 │   → ZERO runtime findings. Do NOT fabricate findings from static reading.
 └── If runtime_available: true → proceed.

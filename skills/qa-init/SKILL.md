@@ -120,6 +120,20 @@ Produce the preflight cache payload from the supplied probe results and return i
 
 Also read app start-command hints and cleanup-hook patterns from project files (see `persistence-contract.md` for the full `detected_start_hints[]` and `detected_cleanup_hook` schema) — include them in the payload.
 
+If the project context includes a `runtime.base_url` field (set by the user or detected from
+project configuration), include it in the preflight cache payload under `runtime.base_url`. This
+value is used by the orchestrator as the first-priority URL source during URL resolution (Decision
+C, Step 2). If absent, omit the field.
+
+The project context schema includes an optional `runtime` block:
+
+```yaml
+runtime:
+  base_url: "http://localhost:3000"   # optional; omit when not set
+```
+
+SUGGEST ONLY — never run these
+
 ---
 
 ### Step 5: Return Summary
@@ -155,6 +169,7 @@ No project files created.
 - **unavailable_reason**: {null | "specific cause"}
 - **detection_mechanism**: {doctor | chrome-probe-fallback | bash-unavailable}
 - **agent-browser version**: {version string | not detected}
+- **runtime.base_url**: {url | not set}
 - **App start hints** (SUGGEST ONLY — never run these):
   {list of detected_start_hints[].command or "None detected"}
 
@@ -186,6 +201,7 @@ Ready for `/qa-review [scope]` to review code changes.
 - **unavailable_reason**: {null | "specific cause"}
 - **detection_mechanism**: {doctor | chrome-probe-fallback | bash-unavailable}
 - **agent-browser version**: {version string | not detected}
+- **runtime.base_url**: {url | not set}
 - **App start hints** (SUGGEST ONLY — never run these):
   {list of detected_start_hints[].command or "None detected"}
 
@@ -213,6 +229,7 @@ Ready for `/qa-review [scope]` to review code changes.
 - **unavailable_reason**: {null | "specific cause"}
 - **detection_mechanism**: {doctor | chrome-probe-fallback | bash-unavailable}
 - **agent-browser version**: {version string | not detected}
+- **runtime.base_url**: {url | not set}
 - **App start hints** (SUGGEST ONLY — never run these):
   {list of detected_start_hints[].command or "None detected"}
 - **Note**: preflight cache was NOT persisted (mode: none). Re-run /qa-init with engram or openspec to persist.

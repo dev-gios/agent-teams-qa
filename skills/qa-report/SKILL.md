@@ -80,6 +80,38 @@ TIER-AWARE MERGE EXTENSION (for runtime findings carrying Oracle Tiers):
 
 Apply the two-gate verdict logic owned by `skills/_shared/qase/severity-contract.md` and `skills/_shared/qase/oracle-contract.md`. Read those files for the full Gate 1 (tier ceiling by Oracle Tier) and Gate 2 (veto-bearing predicate) algorithm before proceeding. Do not restate them here.
 
+### Step 3b: Coverage Resolution
+
+Placed between Step 3 (veto logic) and Step 4 (grouping). Runs before any verdict string is assembled.
+
+**Inputs**:
+- `runtime_recommendation` block forwarded by the orchestrator from `qa-scan`
+- The set of returned specialist result envelopes
+- `runtime_unverified_reason` forwarded by the orchestrator when it short-circuited (may be null)
+
+```
+runtime_coverage =
+    IF runtime_recommendation.recommended != true:
+        → not-required
+        → runtime_unverified_reason = null
+
+    ELSE IF every agent in runtime_recommendation.specialists returned
+             status: success AND verdict_contribution != UNVERIFIED:
+        → verified
+        → runtime_unverified_reason = null
+
+    ELSE:
+        → unverified
+        → runtime_unverified_reason = (value forwarded by orchestrator from the refusal branch)
+```
+
+Partial coverage (e.g., `qa-browser` ran successfully but `qa-visual` refused) resolves to
+`unverified`. Coverage is all-or-nothing per recommendation. Understating what was checked is safe;
+overstating it is the defect this change exists to remove.
+
+**Result**: set `runtime_coverage` and `runtime_unverified_reason` for use in Step 6 rendering and
+Step 8 metadata.
+
 ### Step 4: Group and Rank Findings
 
 Organize the deduplicated findings:
@@ -123,7 +155,7 @@ CALCULATE:
 
 ---
 
-### Verdict: {APPROVE | APPROVE WITH WARNINGS | REJECT}
+### Verdict: {verdict}{runtime_suffix}
 
 {One-line summary: e.g., "2 security BLOCKERs require attention before merge"}
 
@@ -200,6 +232,22 @@ CALCULATE:
 
 {If findings were dismissed from feedback: "Note: {N} previously dismissed patterns were skipped. Run `/qa-feedback` to review dismissals."}
 
+{IF runtime_coverage == unverified:}
+### Unverified Coverage
+
+Runtime verification was recommended for this review and did not run.
+
+| Triggering categories | Specialists that did not run | Reason |
+|---|---|---|
+| {triggering-categories} | qa-browser, qa-visual | {runtime-reason} |
+
+Static review found what static review can find. Nothing here was rendered,
+loaded, or executed. To close the gap:
+
+    /qa-browser <url>
+
+{END IF}
+
 ---
 ## Metadata
 - **review-id**: {review-id}
@@ -214,6 +262,8 @@ CALCULATE:
 - **oracle_tier_breakdown**: { L1: {n}, L2: {n}, L3-schema: {n}, L3-inferred: {n}, L4: {n} }
 - **specialists-consulted**: [{list}]
 - **dismissed-patterns-skipped**: {N}
+- **runtime_coverage**: {verified | not-required | unverified}
+- **runtime_unverified_reason**: {null | one enum value from persistence-contract.md}
 ---
 ```
 
