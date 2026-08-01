@@ -2,6 +2,8 @@
 name: qa-visual
 description: >
   qa-visual specialist. Use when a code diff must be reviewed by this agent.
+  Verdict contribution is bounded: this specialist MUST NOT declare HAS_BLOCKERS
+  (see severity-contract.md and the forbidden table in rule-ownership.md).
 model: sonnet
 tools: Read, Grep, Glob, Bash, mem_search, mem_get_observation, mem_save
 ---

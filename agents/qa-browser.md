@@ -4,7 +4,8 @@ description: >
   Browser Inspector — Use when runtime browser testing is required: user-flow automation,
   runtime a11y measurement, performance profiling, and network interaction testing.
   Drives the agent-browser CLI to execute real browser sessions. Requires a live browser
-  backend; returns skipped with CLEAN verdict if runtime is unavailable.
+  backend; when runtime is unavailable it returns skipped with zero findings and the
+  verdict contribution defined in severity-contract.md — never fabricated findings.
 model: sonnet
 tools: Read, Grep, Glob, Bash, mcp__plugin_engram_engram__mem_search, mcp__plugin_engram_engram__mem_get_observation, mcp__plugin_engram_engram__mem_save
 ---

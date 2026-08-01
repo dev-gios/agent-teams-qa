@@ -657,7 +657,88 @@ check_c12_orchestrator_set_parity() {
     [ "$c12_ok" -eq 1 ] && pass "C12 orchestrator-set-parity: derived set from qase.json equals pinned required table (${#derived_set[@]} orchestrators)"
 }
 
-# run_coherence_checks — orchestrates C1-C12 in order.
+# C13 — Agent description must not restate verdict semantics.
+# An agent's frontmatter `description` MUST NOT name a verdict-contribution token
+# (CLEAN, UNVERIFIED, HAS_WARNINGS, HAS_BLOCKERS) as an outcome it returns.
+# Exemptions (e.g. prohibitions: "MUST NOT declare HAS_BLOCKERS") are registered
+# per-token in the `desc-verdict` table of rule-ownership.md so the exemption is
+# itself drift-detectable rather than hardcoded here.
+# Usage: check_c13_description_no_verdict_restatement <registry-file> [<corpus-root>]
+check_c13_description_no_verdict_restatement() {
+    local reg="$1"
+    local root="${2:-.}"
+    local agents_dir="$root/agents"
+    local c13_ok=1
+
+    # Build a lookup of per-token allow_regex and allow_count from the desc-verdict table.
+    # Table columns: check_id | token | allow_regex | allow_count
+    declare -A c13_allow_re c13_allow_n
+    while IFS=$'\t' read -r id token allow_re allow_n; do
+        [ -z "$id" ] && continue
+        c13_allow_re["$token"]="$allow_re"
+        c13_allow_n["$token"]="${allow_n:-0}"
+    done < <(coh_table "$reg" desc-verdict)
+
+    # Default: if the table is absent or empty, enforce zero-exemption for all four tokens.
+    local verdict_tokens=("CLEAN" "UNVERIFIED" "HAS_WARNINGS" "HAS_BLOCKERS")
+    for t in "${verdict_tokens[@]}"; do
+        [ -z "${c13_allow_re[$t]+x}" ] && c13_allow_re["$t"]="—"
+        [ -z "${c13_allow_n[$t]+x}" ] && c13_allow_n["$t"]=0
+    done
+
+    for agent_file in "$agents_dir"/qa-*.md; do
+        [ -f "$agent_file" ] || continue
+        local stem
+        stem=$(basename "$agent_file" .md)
+
+        # Extract the frontmatter description value (YAML block scalar `description: >`)
+        # Reads lines between the first `---` and second `---`, then extracts the
+        # description field (including multi-line block scalar continuation lines).
+        local desc
+        desc=$(awk '
+            NR == 1 && /^---$/ { in_fm=1; next }
+            in_fm && /^---$/ { exit }
+            in_fm && /^description:/ { collecting=1; sub(/^description:[[:space:]]*/,""); print; next }
+            collecting && /^[[:space:]]/ { print; next }
+            collecting && /^[^[:space:]]/ { exit }
+        ' "$agent_file")
+
+        for token in "${verdict_tokens[@]}"; do
+            local total exempt expected_exempt surplus
+            total=$(printf '%s' "$desc" | grep -cF -- "$token" 2>/dev/null || true)
+            [ "$total" -eq 0 ] && continue
+
+            local allow_re="${c13_allow_re[$token]}"
+            local expected_n="${c13_allow_n[$token]}"
+
+            # Convert \| back to | for grep -E (same convention as C1).
+            local grep_re
+            grep_re=$(printf '%s' "$allow_re" | sed 's/\\|/|/g')
+
+            if [ "$allow_re" = "—" ] || [ -z "$allow_re" ]; then
+                exempt=0
+            else
+                exempt=$(printf '%s' "$desc" | grep -F -- "$token" 2>/dev/null | grep -Ec -- "$grep_re" 2>/dev/null || true)
+            fi
+
+            # Validate exemption count matches declared allow_count.
+            if [ "$exempt" -ne "$expected_n" ]; then
+                fail "C13 $stem: exemption drift for token '$token' (expected allow_count=$expected_n, found $exempt matching allow_regex in description)"
+                c13_ok=0
+            fi
+
+            surplus=$(( total - exempt ))
+            if [ "$surplus" -gt 0 ]; then
+                fail "C13 $stem: frontmatter description names verdict token '$token' $surplus non-exempt time(s) — descriptions must not restate verdict semantics (see rule-ownership.md desc-verdict table)"
+                c13_ok=0
+            fi
+        done
+    done
+
+    [ "$c13_ok" -eq 1 ] && pass "C13 description-no-verdict-restatement: no agent description restates verdict tokens"
+}
+
+# run_coherence_checks — orchestrates C1-C13 in order.
 # Usage: run_coherence_checks <corpus-root>
 run_coherence_checks() {
     local root="${1:-.}"
@@ -680,4 +761,5 @@ run_coherence_checks() {
     check_c10_unverified_not_clean "$root"
     check_c11_coverage_resolution_mapping "$root"
     check_c12_orchestrator_set_parity "$reg" "$root"
+    check_c13_description_no_verdict_restatement "$reg" "$root"
 }

@@ -238,6 +238,23 @@ output=$(bash --norc --noprofile -c "
 assert_fail_with_check "neg-unpinned-orchestrator: C12 fires when new orchestrator not in required table" "$output" "$ec" "C12"
 
 # ============================================================
+# Fixture 10: neg-desc-verdict-restatement — expect exit 1, output must contain "C13"
+# Proves: a description that names a verdict token (CLEAN) as a returned outcome fires C13.
+# ============================================================
+printf "\n${BOLD}Fixture: neg-desc-verdict-restatement${NC}\n"
+output=$(bash --norc --noprofile -c "
+    PASS_COUNT=0; FAIL_COUNT=0; WARN_COUNT=0
+    pass() { echo \"PASS \$1\"; }
+    fail() { echo \"FAIL \$1\"; FAIL_COUNT=\$((FAIL_COUNT + 1)); }
+    warn() { echo \"WARN \$1\"; }
+    source '$LIB_DIR/coherence.sh'
+    reg='$FIXTURES_DIR/neg-desc-verdict-restatement/skills/_shared/qase/rule-ownership.md'
+    check_c13_description_no_verdict_restatement \"\$reg\" '$FIXTURES_DIR/neg-desc-verdict-restatement'
+    exit \$FAIL_COUNT
+" 2>&1) ; ec=$?
+assert_fail_with_check "neg-desc-verdict-restatement: C13 fires when description names CLEAN as a returned verdict" "$output" "$ec" "C13"
+
+# ============================================================
 # Summary
 # ============================================================
 printf "\n${BOLD}=== Coherence Test Summary ===${NC}\n"

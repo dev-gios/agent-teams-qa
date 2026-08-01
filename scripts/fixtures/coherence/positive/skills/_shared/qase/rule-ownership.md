@@ -31,6 +31,15 @@
 | {runtime_suffix} | derived | skills/_shared/qase/severity-contract.md | ### Runtime Coverage Suffix |
 <!-- /coherence:table -->
 
+<!-- coherence:table desc-verdict -->
+| check_id | token | allow_regex | allow_count |
+|----------|-------|-------------|-------------|
+| desc-no-clean | CLEAN | — | 0 |
+| desc-no-unverified | UNVERIFIED | — | 0 |
+| desc-no-warnings | HAS_WARNINGS | — | 0 |
+| desc-no-blockers | HAS_BLOCKERS | MUST NOT declare HAS_BLOCKERS | 1 |
+<!-- /coherence:table -->
+
 <!-- coherence:table capabilities -->
 | agent | class | model |
 |-------|-------|-------|
