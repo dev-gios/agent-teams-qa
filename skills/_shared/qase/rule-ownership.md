@@ -50,6 +50,7 @@ positive fixture otherwise.
 |---------|-------|---------|-------|-------------|-------------|
 | veto-ack | skills/_shared/qase/severity-contract.md | requires explicit user acknowledgment | skills/**,agents/** | — | 0 |
 | forces-reject | skills/_shared/qase/severity-contract.md | forces REJECT | skills/**,agents/** | — | 0 |
+| forces-reject-verdict | skills/_shared/qase/severity-contract.md | force a REJECT verdict | skills/**,agents/** | — | 0 |
 | tier-ceiling-l3i | skills/_shared/qase/oracle-contract.md | A BLOCKER arriving at L3-inferred | skills/**,agents/** | — | 0 |
 <!-- /coherence:table -->
 

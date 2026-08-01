@@ -238,6 +238,78 @@ FIXTURE
 }
 
 # ============================================================================
+# 6. Capability Boundary Tests (sole-writer guarantee)
+# ============================================================================
+test_capability_boundary() {
+    echo -e "\n${BOLD}Testing: Capability Boundary (sole-writer guarantee)${NC}"
+
+    # Install real agents into a temp destination
+    local src_agents="$REPO_DIR/agents"
+    local dest_agents="$TMP_DIR/cap_agents"
+    install_agents_to_path "$dest_agents" "TestTool" "$src_agents" > /dev/null
+
+    # Assert: no installed agent grants Write
+    local write_hits
+    write_hits=$(grep -rlE '^tools:.*\bWrite\b' "$dest_agents"/ 2>/dev/null || true)
+    if [ -n "$write_hits" ]; then
+        test_fail "capability-boundary: installed agent(s) grant Write: $write_hits"
+    else
+        test_pass "capability-boundary: no installed agent grants Write"
+    fi
+
+    # Assert: no installed agent grants Edit
+    local edit_hits
+    edit_hits=$(grep -rlE '^tools:.*\bEdit\b' "$dest_agents"/ 2>/dev/null || true)
+    if [ -n "$edit_hits" ]; then
+        test_fail "capability-boundary: installed agent(s) grant Edit: $edit_hits"
+    else
+        test_pass "capability-boundary: no installed agent grants Edit"
+    fi
+
+    # Assert: Bash is granted only to qa-browser and qa-visual
+    local bash_agents
+    bash_agents=$(grep -rlE '^tools:.*\bBash\b' "$dest_agents"/ 2>/dev/null \
+        | xargs -I{} basename {} .md | sort || true)
+    local expected_bash
+    expected_bash="$(printf 'qa-browser\nqa-visual')"
+    if [ "$bash_agents" = "$expected_bash" ]; then
+        test_pass "capability-boundary: Bash granted only to qa-browser and qa-visual"
+    else
+        test_fail "capability-boundary: Bash grants mismatch — expected {qa-browser, qa-visual}, found: $bash_agents"
+    fi
+}
+
+# ============================================================================
+# 7. $APPDATA path resolution test
+# ============================================================================
+test_appdata_resolution() {
+    echo -e "\n${BOLD}Testing: \$APPDATA path resolution${NC}"
+
+    # Simulate a Windows-style path containing $APPDATA
+    local raw="\$APPDATA/opencode/skills"
+
+    # With APPDATA unset, resolve_path must NOT leave the literal $APPDATA in the result
+    local saved_appdata="${APPDATA:-}"
+    export APPDATA="/tmp/fake-appdata"
+    local resolved
+    resolved=$(resolve_path "$raw")
+    export APPDATA="$saved_appdata"
+
+    if [[ "$resolved" == "/tmp/fake-appdata/opencode/skills" ]]; then
+        test_pass "resolve_path: \$APPDATA expanded correctly"
+    else
+        test_fail "resolve_path: \$APPDATA not expanded — got '$resolved'"
+    fi
+
+    # Verify that the literal string '$APPDATA' is not present in the result
+    if [[ "$resolved" == *'$APPDATA'* ]]; then
+        test_fail "resolve_path: literal '\$APPDATA' left unexpanded in result"
+    else
+        test_pass "resolve_path: no literal '\$APPDATA' in resolved path"
+    fi
+}
+
+# ============================================================================
 # Main Test Runner
 # ============================================================================
 echo -e "${CYAN}${BOLD}=== QASE Modular Test Suite ===${NC}"
@@ -247,6 +319,8 @@ test_os_detect
 test_installer_core
 test_json_parser_errors
 test_agent_installer
+test_capability_boundary
+test_appdata_resolution
 
 # ============================================================================
 # Summary

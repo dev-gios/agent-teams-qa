@@ -87,12 +87,13 @@ install_agents_to_path() {
     echo -e "  ${GREEN}✓${NC} ${BOLD}$count${NC} agents installed → $target_dir"
 }
 
-# Resolve system paths (expand $HOME, $USERPROFILE)
+# Resolve system paths (expand $HOME, $USERPROFILE, $APPDATA)
 resolve_path() {
     local raw_path="$1"
-    # Expand $HOME and $USERPROFILE (handle potentially unbound variables)
+    # Expand $HOME, $USERPROFILE, and $APPDATA (handle potentially unbound variables)
     local resolved
     resolved="${raw_path/\$HOME/${HOME:-}}"
     resolved="${resolved/\$USERPROFILE/${USERPROFILE:-}}"
+    resolved="${resolved/\$APPDATA/${APPDATA:-}}"
     echo "$resolved"
 }

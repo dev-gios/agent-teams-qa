@@ -28,6 +28,8 @@ Non-veto agents (`qa-advocate`, `qa-inclusion`, `qa-performance`, `qa-test-strat
 
 **`qa-visual` BLOCKER carve-out**: `qa-visual` is permanently excluded from BLOCKER production regardless of the general non-veto permission above. All `qa-visual` findings are capped at WARNING by the L4 severity ceiling (see Oracle Tier table above). A BLOCKER arriving from `qa-visual` at Gate 1 is a tier-gate violation and MUST be downgraded to WARNING.
 
+**Summary**: a veto-bearing BLOCKER will force a REJECT verdict and requires explicit user acknowledgment. Veto-bearer list and predicate are defined in the veto table above; do not restate them in specialist SKILL.md files — cite this file instead.
+
 ## Verdict Logic (used by qa-report)
 
 ```
