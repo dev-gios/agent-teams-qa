@@ -7,7 +7,7 @@
     <br />
     <em>Zero dependencies. Pure Markdown. Works everywhere.</em>
     <br />
-    <em>Optional: <a href="https://github.com/nicholasgriffintn/chrome-devtools-mcp">Chrome DevTools MCP</a> + <a href="https://github.com/gentleman-programming/engram">Engram</a> unlock runtime visual &amp; browser testing.</em>
+    <em>Optional: <a href="https://github.com/gentleman-programming/engram">Engram</a> for cross-session persistence. Runtime specialists require <code>agent-browser</code> CLI + Bash.</em>
   </p>
 </p>
 
@@ -63,12 +63,12 @@ QASE doesn't impose architecture — it vets code for quality using the project'
 | **qa-test-strategy** | Coverage gaps, test quality | No |
 | **qa-report** | Consensus engine, dedup, verdict | — |
 
-**Runtime specialists** (require [Chrome DevTools MCP](https://github.com/nicholasgriffintn/chrome-devtools-mcp)):
+**Runtime specialists** (require `agent-browser` CLI and Bash — run `/qa-init` to confirm availability):
 
-| Specialist | Role | Scope |
-|-----------|------|-------|
-| **qa-browser** | Console errors, network health, interactions, Core Web Vitals | Live URL |
-| **qa-visual** | Design system compliance, WCAG contrast, responsive layout, animations | Live URL |
+| Specialist | Role | Scope | Veto |
+|-----------|------|-------|------|
+| **qa-browser** | Console errors, network health, interactions, Core Web Vitals, user-flow evidence | Live URL | Tier-gated (L1/L2/L3-schema BLOCKERs) |
+| **qa-visual** | Design system compliance, WCAG contrast, responsive layout, animations | Live URL | No |
 
 > qa-browser answers "does the app **work**?", qa-visual answers "does the app **look** correct?"
 
@@ -132,8 +132,8 @@ After installing skills, add the orchestrator instructions from `examples/{your-
 | `/qa-inclusion [scope]` | Solo: Accessibility analysis |
 | `/qa-performance [scope]` | Solo: Performance analysis |
 | `/qa-test-strategy [scope]` | Solo: Test strategy analysis |
-| `/qa-browser [url]` | Solo: Runtime functional testing (requires Chrome DevTools MCP) |
-| `/qa-visual [url]` | Solo: Visual regression & design system audit (requires Chrome DevTools MCP) |
+| `/qa-browser [url] [flows]` | Solo: Runtime functional testing via agent-browser CLI (run `/qa-init` first) |
+| `/qa-visual [url]` | Solo: Visual regression & design system audit via agent-browser CLI (run `/qa-init` first) |
 | `/qa-feedback` | Process dismissals, build institutional memory |
 
 ### Scope Syntax
@@ -156,7 +156,7 @@ After installing skills, add the orchestrator instructions from `examples/{your-
 | **WARNING** | Should fix | APPROVE WITH WARNINGS |
 | **INFO** | Suggestion | None (shown with `--deep`) |
 
-**Veto power**: qa-security and qa-architect BLOCKERs require explicit user acknowledgment to override.
+**Veto power**: qa-security and qa-architect BLOCKERs always require explicit user acknowledgment to override. qa-browser BLOCKERs backed by L1/L2/L3-schema Oracle evidence also carry veto power (tier-gated).
 
 ## Feedback Loop
 
@@ -226,8 +226,8 @@ Each sub-agent is a `SKILL.md` file — pure Markdown instructions that any AI a
 | **Test Strategy** | `qa-test-strategy/SKILL.md` | Coverage gaps, test quality, missing edge cases |
 | **Report** | `qa-report/SKILL.md` | Consensus engine, deduplication, veto logic, verdict |
 | **Feedback** | `qa-feedback/SKILL.md` | Processes dismissals, builds institutional memory |
-| **Browser** | `qa-browser/SKILL.md` | Runtime functional testing via Chrome DevTools MCP |
-| **Visual** | `qa-visual/SKILL.md` | Visual regression & design system compliance via Chrome DevTools MCP |
+| **Browser** | `qa-browser/SKILL.md` | Runtime functional testing via agent-browser CLI. **Tier-gated veto** (L1/L2/L3-schema BLOCKERs) |
+| **Visual** | `qa-visual/SKILL.md` | Visual regression & design system compliance via agent-browser CLI |
 
 ### Shared Conventions
 
@@ -266,29 +266,26 @@ Each sub-agent returns a structured payload:
 
 ## Runtime Prerequisites (for qa-browser & qa-visual)
 
-The static specialists (architect, security, etc.) work out of the box — no extra dependencies. The two **runtime specialists** require external MCP servers:
+The static specialists (architect, security, etc.) work out of the box — no extra dependencies. The two **runtime specialists** require `agent-browser` CLI and a Bash tool available to the executor:
 
 | Dependency | Required For | What It Does |
 |-----------|-------------|-------------|
-| [Chrome DevTools MCP](https://github.com/nicholasgriffintn/chrome-devtools-mcp) | qa-browser, qa-visual | Connects to a running browser for screenshots, DOM inspection, network monitoring, viewport resizing |
+| `agent-browser` CLI | qa-browser, qa-visual | Drives a real browser for screenshots, DOM inspection, network monitoring, viewport resizing, and end-to-end user-flow execution |
+| Bash tool | qa-browser, qa-visual | The executor must have a shell available; agent-browser is invoked via Bash commands |
 | [Engram](https://github.com/gentleman-programming/engram) | All (recommended) | Persists reports across sessions, enables feedback loop and SDD bridge |
 
 ### Setup
 
-**1. Chrome DevTools MCP** — add to your MCP config (`claude_desktop_config.json` or `.mcp.json`):
+**1. `agent-browser` CLI** — install globally and provision the browser binary:
 
-```json
-{
-  "mcpServers": {
-    "chrome-devtools": {
-      "command": "npx",
-      "args": ["-y", "@anthropic/chrome-devtools-mcp"]
-    }
-  }
-}
+```bash
+npm i -g agent-browser
+agent-browser install
 ```
 
-**2. Engram** — add to your MCP config:
+Then run `/qa-init` in your project to confirm runtime availability. `qa-init` probes the CLI, checks for a Chrome binary, runs a smoke test, and caches the result. `qa-browser` and `qa-visual` read this cache and refuse to run if runtime is unavailable.
+
+**2. Engram** — add to your MCP config (`claude_desktop_config.json` or `.mcp.json`):
 
 ```json
 {
@@ -301,7 +298,7 @@ The static specialists (architect, security, etc.) work out of the box — no ex
 }
 ```
 
-> Without Chrome DevTools MCP, `/qa-browser` and `/qa-visual` will report a BLOCKER and stop. Without Engram, reviews still work but results are inline-only (no cross-session persistence or feedback loop).
+> Without `agent-browser` and Bash, `/qa-browser` and `/qa-visual` return `status: skipped` with zero findings — they never fabricate results from static reading. Without Engram, reviews still work but results are inline-only (no cross-session persistence or feedback loop).
 
 ---
 
@@ -632,8 +629,8 @@ agent-teams-qa/
 │   ├── qa-test-strategy/SKILL.md
 │   ├── qa-report/SKILL.md
 │   ├── qa-feedback/SKILL.md
-│   ├── qa-browser/SKILL.md                ← Runtime: functional testing (Chrome DevTools MCP)
-│   └── qa-visual/SKILL.md                 ← Runtime: visual regression (Chrome DevTools MCP)
+│   ├── qa-browser/SKILL.md                ← Runtime: functional testing via agent-browser CLI (tier-gated veto)
+│   └── qa-visual/SKILL.md                 ← Runtime: visual regression via agent-browser CLI
 ├── examples/                            ← Config examples per tool + qase.json metadata
 │   ├── claude-code/
 │   │   ├── CLAUDE.md                    ← Orchestrator instructions

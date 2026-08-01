@@ -95,16 +95,29 @@ low:      ui-only, test-only, config-only, docs-only
 
 Some specialists operate **outside the code-diff pipeline** and are not routed by `qa-scan`:
 
-| Specialist | Trigger | Why Out-of-Band |
-|------------|---------|-----------------|
-| `qa-browser` | `/qa-browser <url> [flows]` | Tests a live running application via Chrome DevTools, not source code diffs |
-| `qa-visual` | `/qa-visual <url>` | Visual regression and design system compliance testing via Chrome DevTools, not source code diffs |
+| Specialist | Trigger | Backend | Oracle Tiers | Veto | Why Out-of-Band |
+|------------|---------|---------|--------------|------|-----------------|
+| `qa-browser` | `/qa-browser <url> [flows]` | agent-browser CLI (via Bash) | L1–L4 | Tier-gated: L1/L2/L3-schema BLOCKERs only | Tests a live running application; not source code diffs |
+| `qa-visual` | `/qa-visual <url>` | agent-browser CLI (via Bash) | Predominantly L4 | None | Visual regression and design system compliance; not source code diffs |
 
 Out-of-band specialists:
 - Do NOT have a column in the routing matrix (they don't analyze file changes)
 - Are NOT activated by `qa-scan` — they are launched directly via solo commands
 - The "Minimum Viable Squad" rule only applies to code-change reviews, not to out-of-band specialists
 - Can still use dismissed patterns from `qa-feedback` for their own finding categories
+- **Require `runtime_available: true` in the preflight cache.** When the cache is absent, stale (> TTL), or `runtime_available: false`, they return `status: skipped` with `verdict_contribution: CLEAN`, the cached reason, and **zero** runtime findings. Fabricating findings from static reading is prohibited.
+
+## Oracle-Tier-Aware Routing
+
+See `skills/_shared/qase/oracle-contract.md` for the full tier definitions and blocking matrix.
+
+A runtime specialist's findings enter the `qa-report` consensus engine with their Oracle Tier attached. `qa-report` sorts and gates on tier, not on agent name alone. This means:
+
+- A `qa-browser` finding at L1 or L3-schema with a verified citation carries the same blocking weight as a `qa-security` finding at the same severity.
+- A `qa-browser` finding at L4 is advisory only (WARNING cap) regardless of how confident the observation appears.
+- `qa-visual` findings are predominantly L4 and therefore advisory. `qa-visual` has no veto power.
+
+Routing agents should not assume a runtime specialist's verdict contribution based on agent identity alone; it depends on the tier distribution of the findings in that review.
 
 ## Dismissed Patterns (Feedback Integration)
 

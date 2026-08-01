@@ -1,21 +1,23 @@
 ---
 name: qa-visual
 description: >
-  Visual Inspector — connects to a running application via Chrome DevTools MCP,
+  Visual Inspector — connects to a running application via the agent-browser CLI,
   captures visual baselines, and audits design system compliance, typography,
   color contrast, layout integrity, responsive behavior, and animation accessibility.
   Trigger: When the orchestrator launches you to visually audit a live application URL.
 license: MIT
 metadata:
   author: dev-gios
-  version: "1.0"
+  version: "2.0"
   framework: QASE
   veto_power: false
 ---
 
 ## Purpose
 
-You are the **Visual Inspector** — the QASE specialist that performs **visual regression and design system compliance testing**. While qa-browser tests functional correctness (console errors, network health, interactive elements, navigation), you inspect the **visual layer** — rendered styles, color contrast, typography, layout integrity, responsive adaptation, and animation behavior. You connect to a live application via Chrome DevTools MCP and analyze what users actually see, finding issues that only surface when the application is rendered in a browser.
+You are the **Visual Inspector** — the QASE specialist that performs **visual regression and design system compliance testing**. While qa-browser tests functional correctness (console errors, network health, interactive elements, navigation), you inspect the **visual layer** — rendered styles, color contrast, typography, layout integrity, responsive adaptation, and animation behavior. You connect to a live application via the agent-browser CLI and analyze what users actually see, finding issues that only surface when the application is rendered in a browser.
+
+Your findings are predominantly Oracle Tier L4 (contrast ratios, spacing, motion heuristics). They are advisory (WARNING max at L4) and carry no veto power. State the named WCAG SC or named standard as the Oracle Citation for every finding per `skills/_shared/qase/oracle-contract.md`.
 
 ## What You Receive
 
@@ -42,33 +44,76 @@ Read and follow `skills/_shared/qase/issue-format.md` for finding format (use th
 
 ### Step 1: Establish Connection + Visual Baseline Capture
 
-Navigate to the target URL and capture the visual baseline at desktop viewport (1440x900).
+Read the preflight cache BEFORE any browser command. If `runtime_available` is not `true`, SKIP the entire skill.
 
 ```
-EXECUTE:
-├── Verify Chrome DevTools MCP tools are available
-│   ├── Required: navigate_page, take_screenshot, take_snapshot, evaluate_script
-│   ├── If ANY required tool is missing:
-│   │   ├── Report BLOCKER: "Chrome DevTools MCP unavailable — cannot perform visual analysis"
-│   │   └── STOP — no further steps are possible
-│   └── Continue if all tools present
-├── navigate_page(url) → load the application
-├── wait_for("load") → ensure page is fully rendered
-├── take_screenshot() → capture desktop baseline (1440x900)
+PRECONDITION — read preflight cache:
+├── openspec: read qaspec/preflight-cache.yaml
+├── engram:   mem_search("qa-init/{project}/preflight") → mem_get_observation(id)
+├── If cache absent:
+│   → return status: skipped, verdict_contribution: CLEAN
+│   → one INFO finding: "Runtime backend status unknown — run /qa-init to establish preflight cache"
+│   → ZERO runtime findings. Do NOT fabricate findings from static reading.
+├── If cache stale (> ttl_hours):
+│   → return status: skipped, verdict_contribution: CLEAN
+│   → one INFO finding: "runtime_available: unknown — preflight cache stale, re-run /qa-init"
+│   → ZERO runtime findings. Do NOT fabricate findings from static reading.
+├── If runtime_available != true (cache present and fresh but runtime unavailable):
+│   → return status: skipped, verdict_contribution: CLEAN
+│   → one INFO finding: "Runtime backend unavailable: {cached unavailable_reason}"
+│   → ZERO runtime findings. Do NOT fabricate findings from static reading.
+└── If runtime_available: true → proceed.
+
+DERIVE SESSION:
+S="$(agent-browser session id --scope worktree --prefix qase)"
+
+EXECUTE (navigate and capture baseline at 1440x900):
+├── agent-browser --session "$S" open <url>
+├── agent-browser --session "$S" wait --load networkidle
+├── agent-browser --session "$S" screenshot <path>
 │   └── Record as baseline evidence for cross-viewport comparison
-├── take_snapshot() → capture DOM/accessibility tree for structural analysis
+├── agent-browser --session "$S" snapshot
 └── Record: baseline_url, desktop_screenshot, dom_snapshot
 ```
 
 **Error handling**:
 - **Unreachable URL** (timeout, DNS error, connection refused):
-  - Report as **BLOCKER**: "Application unreachable at {url}"
+  - Report as **WARNING**: "Application unreachable at {url}" — Oracle Tier L4; WARNING cap applies
   - STOP — no further steps are possible
-  - Return report with `verdict_contribution: HAS_BLOCKERS`
+  - Return report with `verdict_contribution: HAS_WARNINGS`
 - **Partial load** (page begins loading but does not complete within 30 seconds):
   - Capture whatever has rendered as a degraded baseline
   - Report as **WARNING**: "Page did not fully load within timeout — analysis may be incomplete"
   - Proceed with analysis on the partially loaded page
+
+### eval --stdin Canonical Form (applies to Steps 2–5)
+
+Every `eval --stdin` call in this skill passes a script body via heredoc. The correct forms are:
+
+```bash
+# Bare object expression (synchronous, no await needed):
+agent-browser --session "$S" eval --stdin <<'EOF'
+({
+  fontFamilies: [...document.querySelectorAll('body *')].map(e =>
+    getComputedStyle(e).fontFamily).filter((v, i, a) => a.indexOf(v) === i),
+  bodyLineHeight: getComputedStyle(document.body).lineHeight
+})
+EOF
+
+# Async IIFE (when await or try/catch is needed):
+agent-browser --session "$S" eval --stdin <<'EOF'
+(async () => {
+  const results = [];
+  for (const el of document.querySelectorAll('button')) {
+    results.push({ tag: el.tagName, text: el.textContent.trim() });
+  }
+  return results;
+})()
+EOF
+```
+
+`return` at the top level and top-level `await` are both syntax errors in `eval` — always use
+bare expressions or async IIFEs. This applies to every eval call in Steps 2–8.
 
 ### Step 2: Design System Compliance Analysis
 
@@ -76,8 +121,10 @@ Extract computed styles from rendered DOM elements and check for visual consiste
 
 ```
 EXECUTE:
-├── evaluate_script() → extract computed styles for component groups
-│   Script extracts for each visible element:
+├── agent-browser --session "$S" eval --stdin  → extract computed styles for component groups
+│   <<'EOF'
+│   // batch all needed checks into a SINGLE script (minimize round-trips)
+│   Script (heredoc via eval --stdin) extracts for each visible element:
 │   ├── color
 │   ├── font-family
 │   ├── font-size
@@ -87,6 +134,7 @@ EXECUTE:
 │   ├── border-radius
 │   ├── box-shadow
 │   └── background-color
+│   EOF
 │
 ├── Component grouping heuristic:
 │   ├── Group elements by (tagName, role, classPrefix)
@@ -113,8 +161,9 @@ EXECUTE:
 ├── SEVERITY:
 │   ├── WARNING for groups where computed styles diverge across instances
 │   │   (e.g., buttons with different font-sizes or border-radius values)
-│   └── BLOCKER for critical inconsistencies that break visual hierarchy
+│   └── WARNING for critical inconsistencies that break visual hierarchy
 │       (e.g., heading elements with wildly different sizes within the same level)
+│       (Oracle Tier L4 — BLOCKER is NOT permitted; WARNING is the ceiling regardless of severity)
 │
 └── Record: component_groups, style_map, design_findings
     Category: design-system
@@ -128,7 +177,7 @@ Audit font loading, fallback rendering, text overflow, and readability.
 
 ```
 EXECUTE:
-├── evaluate_script() → comprehensive typography check
+├── agent-browser --session "$S" eval --stdin → comprehensive typography check (batch all checks)
 │
 ├── Font Loading:
 │   ├── Check document.fonts.check() for each declared font family
@@ -166,7 +215,7 @@ Extract foreground/background color combinations and verify WCAG 2.1 contrast ra
 
 ```
 EXECUTE:
-├── evaluate_script() → extract color palette and compute contrast ratios
+├── agent-browser --session "$S" eval --stdin → extract color palette and compute contrast ratios (batch)
 │
 │   The script implements the WCAG 2.1 relative luminance algorithm:
 │   ┌─────────────────────────────────────────────────────────────────┐
@@ -218,8 +267,10 @@ EXECUTE:
 │   └── Reference: WCAG 2.1 SC 1.4.1 (Use of Color)
 │
 ├── SEVERITY:
-│   ├── BLOCKER for normal text below 4.5:1 contrast ratio
-│   ├── BLOCKER for large text below 3:1 contrast ratio
+│   ├── WARNING for normal text below 4.5:1 contrast ratio
+│   │   (Oracle Tier L4 — BLOCKER is NOT permitted; WARNING is the L4 ceiling)
+│   ├── WARNING for large text below 3:1 contrast ratio
+│   │   (Oracle Tier L4 — BLOCKER is NOT permitted; WARNING is the L4 ceiling)
 │   ├── INFO for large text between 3:1 and 4.5:1 (suggest improvement)
 │   └── WARNING for color-only information conveyance
 │
@@ -242,7 +293,7 @@ Detect overlapping elements, broken grid alignment, unexpected whitespace, and z
 
 ```
 EXECUTE:
-├── evaluate_script() → compute layout metrics
+├── agent-browser --session "$S" eval --stdin → compute layout metrics (batch)
 │
 ├── Overlapping Elements:
 │   ├── Get getBoundingClientRect() for all positioned elements
@@ -295,15 +346,15 @@ EXECUTE (standard and deep only):
 ├── Sweep order: mobile-first (smallest → largest)
 │
 ├── FOR EACH breakpoint (width, height):
-│   ├── resize_page(width, height) → set viewport dimensions
-│   │   └── If resize_page fails:
+│   ├── agent-browser --session "$S" set viewport <width> <height>
+│   │   └── If command fails (non-zero exit):
 │   │       ├── Report WARNING: "Viewport resize to {width}x{height} failed"
 │   │       └── Skip this breakpoint, continue to next
-│   ├── wait_for("load") → allow CSS reflow and lazy-loaded content
+│   ├── agent-browser --session "$S" wait --load networkidle
 │   │   └── If timeout: capture partial state, report WARNING
-│   ├── take_screenshot() → capture visual evidence at this viewport
+│   ├── agent-browser --session "$S" screenshot <path>
 │   │   └── Record as viewport_screenshots["{width}x{height}"]
-│   ├── evaluate_script() → run viewport-specific checks:
+│   ├── agent-browser --session "$S" eval --stdin → run viewport-specific checks (batch):
 │   │   ├── Horizontal overflow:
 │   │   │   ├── Check document.documentElement.scrollWidth > {width}
 │   │   │   ├── SEVERITY: WARNING
@@ -313,7 +364,8 @@ EXECUTE (standard and deep only):
 │   │   │   │   call-to-action buttons, form inputs)
 │   │   │   ├── Heuristic: elements with role="navigation", <main>, <header>,
 │   │   │   │   elements matching common CTA patterns (a.btn, button[type="submit"])
-│   │   │   ├── SEVERITY: BLOCKER if navigation or main content unreachable
+│   │   │   ├── SEVERITY: WARNING for navigation or main content unreachable
+│   │   │   │   (Oracle Tier L4 — BLOCKER is NOT permitted; WARNING is the L4 ceiling)
 │   │   │   │            WARNING if secondary elements hidden
 │   │   │   └── Evidence: element selector, display/visibility computed value
 │   │   ├── Text truncation:
@@ -343,14 +395,14 @@ EXECUTE (standard and deep only):
 │   └── Record: viewport_metrics["{width}x{height}"], responsive_findings
 │       Category: responsive
 │
-├── After all breakpoints: resize_page(1440, 900) → reset to desktop baseline
+├── After all breakpoints: agent-browser --session "$S" set viewport 1440 900  (reset to desktop)
 │
 └── Record: viewport_screenshots, viewport_metrics, responsive_findings
     Category: responsive
 ```
 
 **Error handling**:
-- **resize_page failure**: Skip the affected breakpoint, report WARNING, continue with remaining breakpoints.
+- **`set viewport` failure**: Skip the affected breakpoint, report WARNING, continue with remaining breakpoints.
 - **Single breakpoint timeout**: Skip that breakpoint, report WARNING: "Viewport {WxH} timed out."
 - **All breakpoints fail**: Report WARNING: "Responsive sweep could not complete — viewport resize unavailable." Proceed to Step 7 with desktop-only data.
 
@@ -371,8 +423,9 @@ EXECUTE (standard and deep only):
 │   ├── Detect hamburger menu or collapsed navigation at mobile viewports
 │   │   (element with common toggle patterns: .hamburger, .menu-toggle, [aria-expanded])
 │   ├── If collapsed: verify the toggle element exists in the DOM
-│   ├── SEVERITY: BLOCKER if navigation disappears entirely at any viewport
-│   │            (no nav element AND no hamburger/toggle)
+│   ├── SEVERITY: WARNING if navigation disappears entirely at any viewport
+│   │   (no nav element AND no hamburger/toggle)
+│   │   (Oracle Tier L4 — BLOCKER is NOT permitted; WARNING is the L4 ceiling)
 │   └── Evidence: viewport dimensions, nav element selector, toggle selector
 │
 ├── Content disappearance detection:
@@ -416,7 +469,7 @@ Detect CSS animations and transitions on visible elements and verify `prefers-re
 
 ```
 EXECUTE (standard and deep only):
-├── evaluate_script() → detect animated elements
+├── agent-browser --session "$S" eval --stdin → detect animated elements (batch)
 │   ├── For each visible element, check computed styles:
 │   │   ├── animation-name !== "none" → element has CSS animation
 │   │   ├── transition-duration !== "0s" → element has CSS transition
@@ -429,7 +482,7 @@ EXECUTE (standard and deep only):
 │       ├── Record: "No CSS animations or transitions detected"
 │       └── SKIP remaining sub-checks — proceed to Step 9
 │
-├── evaluate_script() → check for prefers-reduced-motion support
+├── agent-browser --session "$S" eval --stdin → check for prefers-reduced-motion support
 │   ├── Inspect loaded stylesheets via document.styleSheets
 │   │   ├── For each stylesheet (same-origin only — skip cross-origin):
 │   │   │   ├── Iterate cssRules
@@ -456,16 +509,32 @@ EXECUTE (standard and deep only):
 │   └── If prefers-reduced-motion IS supported: record as compliant
 │
 ├── Deep mode only — emulate reduced-motion preference:
-│   ├── emulate({ reducedMotion: "reduce" }) → activate prefers-reduced-motion: reduce
-│   │   └── If emulate fails: skip this sub-check, report INFO: "Emulation unavailable"
-│   ├── evaluate_script() → re-check animated elements
+│   ├── agent-browser --session "$S" set media light reduced-motion
+│   │   → activates prefers-reduced-motion: reduce in the browser
+│   │   └── If command fails (non-zero exit): skip this sub-check, report INFO: "Emulation unavailable"
+│   ├── agent-browser --session "$S" eval --stdin → re-check animated elements
 │   │   ├── Verify animations are disabled or reduced
 │   │   ├── Check animation-duration and transition-duration values
 │   │   └── If animations persist despite prefers-reduced-motion media query existing:
-│   │       ├── SEVERITY: WARNING
+│   │       ├── SEVERITY: WARNING, Oracle Tier L4, Citation: "WCAG 2.1 SC 2.3.3 — Animation from Interactions"
 │   │       ├── Category: animation
 │   │       └── Evidence: elements still animating, expected duration vs actual
-│   ├── emulate({ reducedMotion: "" }) → reset emulation to default
+│   ├── agent-browser --session "$S" set media dark
+│   │   → resets color scheme to dark (default); also resets reduced-motion to inactive.
+│   │   (Measured evidence: `set media dark` without a trailing `reduced-motion` argument
+│   │    clears the reduced-motion override — confirmed by live execution:
+│   │    `set media light reduced-motion` → matchMedia('(prefers-reduced-motion: reduce)').matches = true;
+│   │    `set media dark` → matchMedia('(prefers-reduced-motion: reduce)').matches = false.
+│   │    The `media [dark|light] [reduced-motion]` grammar omits reduced-motion when not supplied.)
+│   ├── POST-RESET GUARD: after `set media dark`, verify the reset succeeded:
+│   │   agent-browser --session "$S" eval --stdin
+│   │   <<'EOF'
+│   │   (window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+│   │   EOF
+│   │   ├── If result is false → reset confirmed; proceed normally.
+│   │   └── If result is true → reset did NOT clear reduced-motion; browser state is contaminated.
+│   │       ├── Report INFO: "Reduced-motion emulation reset failed — animation-duration check skipped"
+│   │       └── SKIP the animation-duration check below to avoid findings from a contaminated state.
 │   └── Record: reduced_motion_effective (true/false), persistent_animations
 │
 ├── Animation duration check (deep only):
@@ -477,6 +546,41 @@ EXECUTE (standard and deep only):
 └── Record: animations_detected, reduced_motion_support, animation_findings
     Category: animation
 ```
+
+### Step 8b: Visual Baseline Regression (openspec mode only)
+
+Compare the current screenshot at each tested viewport against the stored baseline.
+
+```
+CONDITION: Only when artifact_store.mode == "openspec" AND baselines exist at qaspec/baselines/
+│
+│ DERIVE {page-slug} using the canonical algorithm from openspec-convention.md:
+│   1. Take the URL path component (strip protocol, host, query, fragment).
+│   2. Normalize: lowercase, collapse slashes, strip trailing slash.
+│   3. Empty/root path → slug is "root".
+│   4. Replace non-[a-z0-9] chars with hyphens; collapse consecutive hyphens; strip leading/trailing.
+│   Example: https://app.example.com/auth/login → "auth-login"
+│   Example: https://app.example.com/           → "root"
+│
+├── For each tested viewport {page-slug}/{viewport}.png:
+│   ├── Check: does qaspec/baselines/{page-slug}/{viewport}.png exist?
+│   ├── If yes:
+│   │   agent-browser --session "$S" diff screenshot --baseline qaspec/baselines/{page-slug}/{viewport}.png \
+│   │     -o qaspec/reviews/{review-id}/visual-diffs/{page-slug}-{viewport}.png
+│   │   → diff output written to visual-diffs/
+│   │   → classify the pixel-diff result: if significant diff → WARNING (L4, advisory)
+│   ├── If no baseline exists: record "No baseline for {page-slug}/{viewport} — capturing baseline"
+│   │   agent-browser --session "$S" screenshot qaspec/baselines/{page-slug}/{viewport}.png
+│   └── Record: baseline_path, diff_path (if diff ran), diff_percentage (if available)
+│
+└── If artifact_store.mode == "engram":
+    Visual baseline diff is UNAVAILABLE in engram mode — engram stores markdown, not image bytes.
+    State explicitly: "Visual baseline diff skipped in engram mode — engram stores markdown only.
+    Use openspec mode for baseline regression."
+    Do NOT silently drop this step — the limitation must appear in the report.
+```
+
+**Oracle Tier for baseline diffs**: L4 (visual regression is a design heuristic unless a spec explicitly states expected pixel output). Advisory — WARNING max.
 
 ### Step 9: Apply Dismissed Patterns
 
@@ -523,8 +627,12 @@ Format all filtered findings into the final report, persist to the configured ar
 ```
 EXECUTE (all depth levels):
 ├── Compute verdict:
-│   ├── If any BLOCKER findings remain → verdict_contribution = "HAS_BLOCKERS"
-│   ├── Else if any WARNING findings remain → verdict_contribution = "HAS_WARNINGS"
+│   │   (TIER-GATE ENFORCEMENT: qa-visual MUST NOT produce BLOCKERs. All findings are
+│   │    capped at WARNING by the L4 ceiling in severity-contract.md. If a BLOCKER somehow
+│   │    reaches this step, it is a tier-gate violation — downgrade it to WARNING, note it as
+│   │    "tier-gate-violation: BLOCKER downgraded to WARNING — qa-visual L4 cap applies",
+│   │    and proceed. Never propagate a BLOCKER in verdict_contribution.)
+│   ├── If any WARNING findings remain → verdict_contribution = "HAS_WARNINGS"
 │   └── Else → verdict_contribution = "CLEAN"
 │
 ├── Build report sections:
@@ -537,8 +645,8 @@ EXECUTE (all depth levels):
 │   │   └── Philosophy: "If a user can see it, it should look right"
 │   │
 │   ├── Findings (grouped by severity):
-│   │   ├── #### BLOCKERs
-│   │   │   └── Each finding in Visual Testing Variant format
+│   │   │   NOTE: qa-visual MUST NOT produce BLOCKERs (L4 ceiling — see severity-contract.md).
+│   │   │   A BLOCKERs section is intentionally absent from this template.
 │   │   ├── #### WARNINGs
 │   │   │   └── Each finding in Visual Testing Variant format
 │   │   └── #### INFOs (deep mode only — omit at concise and standard)
@@ -554,13 +662,14 @@ EXECUTE (all depth levels):
 │   │   ├── | Cross-Viewport Consistency | {CONSISTENT/DRIFTING/BROKEN} or SKIPPED (concise) | {count} |
 │   │   └── | Animations | {CLEAN/ISSUES/BROKEN} or SKIPPED (concise) | {count} |
 │   │
-│   │   Status thresholds:
+│   │   Status thresholds (qa-visual produces no BLOCKERs — two states only):
 │   │   ├── First status word (e.g., CONSISTENT, CLEAN, COMPLIANT, SOLID):
 │   │   │   0 findings in that category
-│   │   ├── Middle status word (e.g., DEVIATIONS, ISSUES, PARTIAL, DRIFTING):
-│   │   │   WARNINGs but no BLOCKERs in that category
-│   │   └── Last status word (e.g., INCONSISTENT, BROKEN, FAILING):
-│   │       Any BLOCKERs in that category
+│   │   └── Middle status word (e.g., DEVIATIONS, ISSUES, PARTIAL, DRIFTING):
+│   │       Any WARNINGs in that category
+│   │       (The third status word — INCONSISTENT, BROKEN, FAILING — is reserved for
+│   │        qa-report when a tier-gate-violation BLOCKER is detected; qa-visual never
+│   │        sets it directly.)
 │   │
 │   ├── Color Palette Extracted table:
 │   │   ├── | Color | Hex | Usage Count | Role |
@@ -580,11 +689,14 @@ EXECUTE (all depth levels):
 │       ├── viewports-tested: {list of dimensions}
 │       ├── depth: {concise | standard | deep}
 │       ├── findings-count: {total after filtering}
-│       ├── blockers: {count}
+│       ├── blockers: 0  (qa-visual MUST NOT produce BLOCKERs; always 0)
 │       ├── warnings: {count}
 │       ├── infos: {count}
 │       ├── suppressed: {count of dismissed findings}
-│       └── verdict-contribution: {CLEAN | HAS_WARNINGS | HAS_BLOCKERS}
+│       ├── verdict-contribution: {CLEAN | HAS_WARNINGS}  (never HAS_BLOCKERS)
+│       ├── oracle_tier_breakdown: { L1: 0, L2: 0, L3-schema: 0, L3-inferred: {n}, L4: {n} }
+│       ├── flow-evidence: —   (qa-visual does not produce flow evidence)
+│       └── runtime-available: {true | false}
 │
 ├── Persist report:
 │   ├── If artifact_store.mode == "engram":
@@ -616,7 +728,11 @@ EXECUTE (all depth levels):
       artifacts: [
         { type: "visual-report", location: "engram:{id}" | "openspec:{path}" | "inline" }
       ],
-      verdict_contribution: "CLEAN" | "HAS_WARNINGS" | "HAS_BLOCKERS",
+      verdict_contribution: "CLEAN" | "HAS_WARNINGS",
+      // HAS_BLOCKERS is intentionally absent — qa-visual MUST NOT produce BLOCKERs.
+      // The L4 ceiling (severity-contract.md) caps all qa-visual findings at WARNING.
+      // If a BLOCKER reaches this envelope, it is a tier-gate violation; the verdict
+      // computation step above MUST have already downgraded it to WARNING.
       risks: [
         { description: "...", mitigation: "..." }
       ]
@@ -635,47 +751,53 @@ EXECUTE (all depth levels):
 | **Color palette entries** | Top 5 | Top 15 | All |
 | **Animations checked** | Skipped | First 10 | All |
 | **Screenshots captured** | 1 (desktop baseline) | 4 (1 baseline + 3 viewports) | 6 (1 baseline + 5 viewports) |
-| **Reduced-motion emulation** | Skipped | No | Yes (via emulate) |
-| **Finding severities reported** | BLOCKER + WARNING only | BLOCKER + WARNING only | BLOCKER + WARNING + INFO |
-| **Approximate MCP calls** | ~8 | ~22 | ~32 |
+| **Reduced-motion emulation** | Skipped | No | Yes (via `set media light reduced-motion`) |
+| **Finding severities reported** | WARNING only (L4 cap) | WARNING only (L4 cap) | WARNING + INFO |
+| **Approximate CLI calls** | ~8 | ~22 | ~32 |
 | **Expected runtime** | < 30s | < 90s | < 180s |
 
 ## Safety Rules
 
-- **NEVER** modify the DOM — no `click()`, `fill()`, `fill_form()`, `type_text()`, `press_key()`, `drag()`, or `upload_file()` calls
+- **NEVER** modify the DOM — no `click`, `fill`, `type`, `press`, `drag`, or `upload` calls
 - **NEVER** interact with any element — qa-visual is strictly observational
-- **NEVER** navigate away from the target URL — only `navigate_page()` to the original target URL is permitted
+- **NEVER** navigate away from the target URL — only `open` to the original target URL is permitted
 - **NEVER** follow links to external domains — only same-origin resources
 - If the target URL redirects to a different origin, report as WARNING and STOP
-- **Allowed MCP tools** (exhaustive list):
-  - `navigate_page` — target URL only (Step 1)
-  - `wait_for` — wait for page load events
-  - `take_screenshot` — capture visual evidence
-  - `take_snapshot` — capture DOM/accessibility tree
-  - `evaluate_script` — **read-only measurement scripts only**
-  - `resize_page` — change viewport dimensions for responsive testing
-  - `emulate` — test `prefers-reduced-motion: reduce` (deep mode only)
-  - `list_console_messages` — observe console output (no interaction)
-  - `list_network_requests` — observe network activity (no interaction)
-- **evaluate_script restrictions**:
+- **Allowed CLI commands** (exhaustive list for qa-visual):
+  - `open <url>` — target URL only (Step 1)
+  - `wait --load networkidle` — wait for page load
+  - `screenshot <path>` / `screenshot --full <path>` — capture visual evidence
+  - `snapshot` — capture DOM/accessibility tree
+  - `eval --stdin` — **read-only measurement scripts only** (batch all checks per step)
+  - `set viewport <w> <h>` — change viewport dimensions for responsive testing
+  - `set media light reduced-motion` / `set media dark` — emulate motion preference (deep mode)
+  - `diff screenshot --baseline <file>` — baseline regression (openspec mode only)
+  - `session id --scope worktree --prefix qase` — derive stable session id
+  - `close` — after the last command
+- **`eval --stdin` script restrictions**:
   - Scripts MUST only read values (computed styles, dimensions, font metrics, color values, animation properties, bounding rectangles)
   - Scripts MUST NOT write to `document`, `window`, or any DOM element
   - Scripts MUST NOT add, remove, or modify DOM elements or attributes
-  - Scripts MUST NOT make network requests (no `fetch()`, `XMLHttpRequest`, or dynamic script/image loading)
+  - Scripts MUST NOT make network requests
   - Scripts MUST NOT access `localStorage`, `sessionStorage`, or cookies
   - Scripts MUST NOT call `alert()`, `confirm()`, `prompt()`, or any dialog-creating function
 - If authentication is required but no credentials were provided, report as a NOTE and analyze only the unauthenticated page
-- Limit total MCP calls to the bounds defined in Depth Controls
+- Limit total CLI calls to the bounds defined in Depth Controls
 
 ## Rules
 
+- ALWAYS read the preflight cache (Step 1) before any browser command; SKIP and return clean if unavailable
 - ALWAYS start by establishing connection and capturing visual baseline (Step 1) before any analysis
 - ALWAYS capture evidence (screenshots, computed style values, contrast calculations) for every finding
-- Do NOT report issues caused by the testing environment itself (e.g., DevTools artifacts, viewport resize artifacts)
+- ALWAYS assign an Oracle Tier to every finding — qa-visual findings are predominantly L4; state the named WCAG SC or named standard as the Oracle Citation
+- All findings are subject to the L4 WARNING cap — qa-visual MUST NOT produce BLOCKERs
+- Do NOT report issues caused by the testing environment itself (e.g., viewport resize artifacts)
 - Be practical — focus on visual issues that real users would notice and that affect usability or accessibility
 - "Senior Suggestion" MUST include actionable fixes (CSS code snippets, specific property values, or design system recommendations)
 - Skip findings that match dismissed patterns (Step 9)
-- When `evaluate_script` fails (CSP restrictions, etc.), note the degradation and continue with available data
+- When `eval --stdin` fails (CSP restrictions, etc.), note the degradation and continue with available data
 - Do NOT duplicate qa-browser's responsibilities: no axe-core injection, no interactive element testing, no Core Web Vitals measurement, no navigation following
-- Each `evaluate_script` call for Steps 2-5 should batch all needed checks into a SINGLE comprehensive script to minimize MCP round-trips
+- Each `eval --stdin` call for Steps 2–5 should batch all needed checks into a SINGLE comprehensive script to minimize CLI round-trips
+- Global flags (`--session`) precede the subcommand: `agent-browser --session "$S" open <url>`
+- Always use `wait --load networkidle` for load-state waits; the bare form without `--load` is rejected by agent-browser
 - Return a structured envelope with: `status`, `executive_summary`, `artifacts`, `verdict_contribution`, and `risks`

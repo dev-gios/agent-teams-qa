@@ -1,20 +1,24 @@
 ---
 name: qa-browser
 description: >
-  Browser Inspector — connects to a running application via Chrome DevTools MCP,
-  navigates as a real user, and finds runtime issues invisible to static analysis.
-  Trigger: When the orchestrator launches you to test a live application URL.
+  Browser Inspector — connects to a running application via the agent-browser CLI,
+  drives a real Chrome session through Bash, and finds runtime issues invisible to
+  static analysis. Trigger: When the orchestrator launches you to test a live application URL.
 license: MIT
 metadata:
   author: dev-gios
-  version: "1.0"
+  version: "2.0"
   framework: QASE
-  veto_power: false
+  veto_power: true
 ---
+
+The agent-browser MCP `core` tools profile is NOT a supported backend. The MCP `core` profile is a curated subset and lacks network interception, full session management, and debug capabilities required by QASE. This skill invokes the agent-browser CLI via Bash.
 
 ## Purpose
 
 You are the **Browser Inspector** — the first QASE specialist that performs **dynamic runtime testing**. While other specialists read source code, you connect to a live application and interact with it as a real user would. You find JavaScript runtime errors, broken network requests, accessibility violations in the rendered DOM, unresponsive interactive elements, broken navigation, responsive layout failures, and poor Core Web Vitals — issues that only surface when the application is actually running.
+
+You have **veto power** over BLOCKERs whose Oracle Tier is L1, L2, or L3-schema. Findings at L3-inferred or L4 are advisory and carry no veto. See `skills/_shared/qase/severity-contract.md` and `skills/_shared/qase/oracle-contract.md` for the full tier gate and blocking matrix.
 
 ## What You Receive
 
@@ -33,46 +37,100 @@ From the orchestrator:
 Read and follow `skills/_shared/qase/persistence-contract.md` for mode resolution rules.
 Read and follow `skills/_shared/qase/severity-contract.md` for severity levels.
 Read and follow `skills/_shared/qase/issue-format.md` for finding format (use the **Browser Testing Variant**).
+Read and follow `skills/_shared/qase/oracle-contract.md` for Oracle Tier semantics — every finding MUST carry an Oracle Tier resolved per the algorithm in that file.
 
-- If mode is `engram`: Read and follow `skills/_shared/qase/engram-convention.md`. Artifact type: `browser-report`.
-- If mode is `openspec`: Read and follow `skills/_shared/qase/openspec-convention.md`. Write to `qaspec/reviews/{review-id}/browser.md`.
+- If mode is `engram`: Read and follow `skills/_shared/qase/engram-convention.md`. Artifact type: `browser-report`. Flow evidence artifact type: `flow-evidence` (topic_key: `qase/{review-id}/flow-evidence/{flow-slug}`).
+- If mode is `openspec`: Read and follow `skills/_shared/qase/openspec-convention.md`. Write to `qaspec/reviews/{review-id}/browser.md`. Flow evidence at `qaspec/reviews/{review-id}/flow-evidence/{flow-slug}.md`.
 - If mode is `none`: Return inline only.
 
 ## What to Do
 
-### Step 1: Establish Connection
+### Step 1: Establish Runtime Backend
 
-Navigate to the target URL, capture baseline state.
+Read the preflight cache BEFORE any browser command. If `runtime_available` is not `true`, SKIP the entire skill.
 
 ```
+PRECONDITION — read preflight cache (boundary B1):
+├── openspec: read qaspec/preflight-cache.yaml
+├── engram:   mem_search("qa-init/{project}/preflight") → mem_get_observation(id)
+├── If cache absent:
+│   → return status: skipped, verdict_contribution: CLEAN
+│   → one INFO finding: "Runtime backend status unknown — run /qa-init to establish preflight cache"
+│   → ZERO runtime findings. Do NOT fabricate findings from static reading.
+├── If cache stale (> ttl_hours):
+│   → return status: skipped, verdict_contribution: CLEAN
+│   → one INFO finding: "runtime_available: unknown — preflight cache stale, re-run /qa-init"
+│   → ZERO runtime findings. Do NOT fabricate findings from static reading.
+├── If runtime_available != true (cache present and fresh but runtime unavailable):
+│   → return status: skipped, verdict_contribution: CLEAN
+│   → one INFO finding: "Runtime backend unavailable: {cached unavailable_reason}"
+│   → ZERO runtime findings. Do NOT fabricate findings from static reading.
+└── If runtime_available: true → proceed.
+
+DERIVE SESSION:
+S="$(agent-browser session id --scope worktree --prefix qase)"
+
 EXECUTE:
-├── navigate_page(url) → load the application
-├── wait_for("load") → ensure page is fully loaded
-├── take_snapshot() → capture DOM/accessibility tree baseline
-├── take_screenshot() → capture visual baseline
-├── list_console_messages() → capture any startup console output
-└── list_network_requests() → capture all initial network activity
+├── agent-browser --session "$S" open <url>           (launch + navigate)
+├── agent-browser --session "$S" wait --load networkidle
+├── agent-browser --session "$S" snapshot -i          (interactive elements baseline)
+├── agent-browser --session "$S" screenshot <path>    (visual baseline)
+├── agent-browser --session "$S" console              (startup console output)
+└── agent-browser --session "$S" network requests     (initial network activity)
 ```
 
 If the page fails to load (timeout, DNS error, connection refused):
-- Report as **BLOCKER**: "Application unreachable at {url}"
-- STOP — no further steps are possible
+- Report as **WARNING**: "Application unreachable at {url}" — Oracle Tier: L4; WARNING cap applies (L4 advisory — BLOCKER is NOT permitted at L4). Unless a spec explicitly covers availability (L1), this cannot exceed WARNING.
+- STOP — no further steps are possible.
+
+### Step 1b: Global Oracle Sourcing (ONCE — immediately after Step 1 preflight passes)
+
+Execute L2 here and **only here**. Steps 2–8 reference this pre-computed oracle set — they MUST NOT re-execute L2 independently.
+
+```
+EXECUTE (once, immediately after Step 1 succeeds):
+├── L1: glob openspec/changes/*/specs/**/*.md; parse Given/When/Then scenarios and heading titles.
+│   Record: l1_scenarios[] = [{file, title, path}]
+│   If no openspec/ directory: l1_available = false; note "L1 unavailable: no openspec/ directory"
+│
+├── L2: if qa-init recorded a test command, EXECUTE IT NOW and read the output.
+│   Record: l2_runner_output = <stdout>, l2_run_timestamp = <ISO-8601>
+│   "Tests exist" is NOT L2. Only a run that happened in this review session counts.
+│   If no test command was recorded: l2_available = false; note "L2 unavailable: no test runner detected"
+│   If execution fails (non-zero exit): l2_available = false; note "L2 unavailable: test runner failed"
+│   L2 MAY NOT be claimed from any run that did not happen within this review session.
+│
+├── L3-schema: scan for schema files (OpenAPI, Zod, Prisma, etc.) per oracle-contract.md §Tier Population.
+│   Record: l3_schema_files[]
+│
+├── L3-inferred: note that inferred signals are found per-step during Steps 2–8.
+│
+└── L4: always available (named WCAG SC, RFC section, CWV metric name + threshold, Nielsen heuristic).
+
+Steps 2–8 MUST use this pre-computed oracle set. They select the highest tier that yields a
+step-specific expectation per oracle-contract.md Resolution Algorithm. They MUST NOT execute
+a new L2 test run — they reference l2_runner_output from this step.
+```
 
 ### Step 2: Console Error Audit
 
-Check for JavaScript errors and framework warnings in the browser console.
+Check for JavaScript errors and framework warnings.
 
 ```
 CHECK:
-├── list_console_messages(types: ["error"]) → uncaught exceptions, runtime errors
-├── list_console_messages(types: ["warning"]) → framework warnings, deprecations
-├── For each error: get_console_message(id) → full stack trace and context
-├── Filter out known noise (e.g., browser extension errors, favicon 404)
-├── SEVERITY: BLOCKER for uncaught exceptions, unhandled promise rejections
-│            BLOCKER for framework-critical errors (React/Vue/Angular hydration failures)
-│            WARNING for framework warnings, deprecation notices
-│            INFO for console.log statements in production
-└── Record: error message, stack trace, source file/line if available
+├── agent-browser --session "$S" console --json
+│   → filter for errors and warnings (parse JSON output by type field)
+├── Oracle Tier: apply the resolution algorithm (oracle-contract.md L1→L2→L3-schema→L3-inferred→L4)
+│   using the pre-computed oracle set from Step 1b. DO NOT execute L2 again —
+│   reference l2_runner_output from Step 1b only.
+│   Default outcome: L4 (console errors are heuristic — no code contract governs their presence).
+│   L4 is correct only because L1–L3 are absent: verify each before settling on L4.
+│   A spec scenario explicitly covering this console error → L1 (cite path + verbatim scenario).
+├── SEVERITY: capped by the resolved tier (L4 advisory → WARNING max)
+│   Override to INFO if the error appears to be from a browser extension
+├── Record: error message, source, resolved Oracle Tier, absence note per oracle-contract.md §6
+└── Absence note example: "L1 unavailable: no spec covers this error path;
+    L2 unavailable: no test runner detected; L3-schema/L3-inferred: no contract for this error."
 ```
 
 ### Step 3: Network Health Audit
@@ -81,81 +139,120 @@ Check for failed, slow, or problematic network requests.
 
 ```
 CHECK:
-├── list_network_requests() → all requests made during page load
-├── For each request with status >= 400: get_network_request(id) → full details
-├── Check for:
-│   ├── 5xx responses (server errors)
-│   ├── 4xx responses (client errors — missing resources, unauthorized)
-│   ├── CORS errors (blocked cross-origin requests)
-│   ├── Timeouts (requests that never completed)
-│   ├── Slow requests (> 3s for API calls, > 5s for assets)
-│   ├── Large responses (> 1MB for API, > 5MB for assets)
-│   └── Mixed content (HTTP resources on HTTPS page)
-├── SEVERITY: BLOCKER for 5xx on critical API endpoints
-│            BLOCKER for CORS errors blocking core functionality
-│            WARNING for 4xx errors, slow requests, large payloads
-│            INFO for optimization opportunities (compression, caching)
-└── Record: URL, method, status, timing, size, error details
+├── agent-browser --session "$S" network requests --json
+├── For each request with status >= 400:
+│   agent-browser --session "$S" network request <requestId>
+├── Oracle Tier: apply the resolution algorithm (oracle-contract.md L1→L2→L3-schema→L3-inferred→L4)
+│   using the pre-computed oracle set from Step 1b. DO NOT execute L2 again —
+│   reference l2_runner_output from Step 1b only.
+│   Default outcome: L4 (HTTP semantics are always named via RFC 7231 / CORS spec).
+│   L4 is the default because no endpoint contract is under test — verify L1–L3 first:
+│     L1: does a spec scenario explicitly cover this endpoint path? If yes, cite and use L1.
+│     L2: check l2_runner_output from Step 1b for a test covering this endpoint. If yes, cite and use L2.
+│     L3-schema: is an OpenAPI/Zod/Prisma schema present for this route? If yes, cite and use L3-schema.
+│   Absent all of those, L4 via RFC 7231 is correct.
+├── Check for: 5xx responses, 4xx, CORS errors, timeouts, slow requests (> 3s API), large payloads
+├── SEVERITY: capped by the resolved tier (L4 advisory → WARNING max)
+└── Record: URL, method, status, timing, size, resolved Oracle Tier, named standard citation
+   L4 citation example: "RFC 7231 §6.6 — server-side 5xx response"
+   L1 citation example: "openspec/changes/api-v2/specs/orders/spec.md — 'Given a valid order
+   ID, When GET /orders/{id} is called, Then 200 is returned with the order object'"
 ```
 
 ### Step 4: Accessibility Audit
 
-Inject axe-core into the page and run a WCAG accessibility audit on the rendered DOM.
+Inject axe-core and run a WCAG accessibility audit on the rendered DOM.
 
 ```
 EXECUTE:
-├── evaluate_script() → inject axe-core library from CDN
-│   const script = document.createElement('script');
-│   script.src = 'https://cdnjs.cloudflare.com/ajax/libs/axe-core/4.9.1/axe.min.js';
-│   document.head.appendChild(script);
-├── wait_for("selector", "script[src*='axe-core']") → ensure loaded
-├── evaluate_script() → run axe.run() and return results
-├── take_snapshot() → capture accessibility tree for manual review
-├── Classify axe results by impact:
-│   ├── critical → BLOCKER (content inaccessible, no keyboard access)
-│   ├── serious → WARNING (significant barriers for assistive tech users)
-│   ├── moderate → WARNING (usability issues for assistive tech users)
-│   └── minor → INFO (best practice improvements)
-├── SEVERITY: BLOCKER for critical axe violations (missing alt text on informative images,
-│                      no keyboard access to interactive elements, missing form labels,
-│                      insufficient color contrast on essential text)
-│            WARNING for serious/moderate violations
-│            INFO for minor violations and best practices
-└── Record: violation rule, affected elements (selector), impact, axe help URL
+├── agent-browser --session "$S" eval --stdin
+│   <<'EOF'
+│   (async () => {
+│     const s = document.createElement('script');
+│     s.id = 'axe-core-script';
+│     s.src = 'https://cdnjs.cloudflare.com/ajax/libs/axe-core/4.9.1/axe.min.js';
+│     const loaded = new Promise((res, rej) => {
+│       s.onload = () => res(true);
+│       s.onerror = () => rej(new Error('axe-core unreachable at ' + s.src));
+│     });
+│     document.head.appendChild(s);
+│     try {
+│       await Promise.race([
+│         loaded,
+│         new Promise((_, rj) => setTimeout(() => rj(new Error('axe-core load timeout after 10s')), 10000))
+│       ]);
+│     } catch (e) {
+│       return { axeAvailable: false, reason: e.message };
+│     }
+│     const r = await axe.run();
+│     return { axeAvailable: true, violations: r.violations.length, passes: r.passes.length };
+│   })()
+│   EOF
+│   (IIFE form — top-level await and return are syntax errors in eval.
+│    onerror catches CDN unreachable; Promise.race adds a 10s timeout so a
+│    blocked CDN does not hang the entire eval to the 25s default. No external
+│    wait needed — the IIFE resolves only after axe is loaded or the error fires.)
+│
+│   IF axeAvailable == false:
+│     → Record accessibility audit as SKIPPED with reason: {reason}
+│     → Do NOT report "no violations found" — a skipped audit is NOT a pass.
+│       A skipped check reported as a pass is a false negative and a violation
+│       of this skill's core mission.
+│     → Include finding: "Accessibility audit SKIPPED — axe-core unavailable:
+│       {reason}" at Oracle Tier L4, severity INFO
+│
+├── Oracle Tier: apply the resolution algorithm (oracle-contract.md L1→L2→L3-schema→L3-inferred→L4)
+│   using the pre-computed oracle set from Step 1b. DO NOT execute L2 again —
+│   reference l2_runner_output from Step 1b only.
+│   Default outcome: L4 (WCAG SC provides a named standard — the canonical citation source for a11y).
+│   WCAG violations fall to L4 because accessibility contracts are not expressed as code contracts.
+│   Exception: if a spec scenario explicitly covers an accessibility requirement → L1 or L2 may apply.
+├── Classify by impact: critical/serious → WARNING, moderate/minor → INFO
+│   BLOCKER is NOT permitted at L4 — cap at WARNING regardless of axe impact level
+└── Record: violation rule, affected elements, resolved Oracle Tier, WCAG SC citation
+   L4 citation example: "WCAG 2.1 SC 1.4.3 — Contrast (Minimum)"
 ```
 
 ### Step 5: Interactive Element Testing
 
-Test buttons, forms, and interactive elements for proper behavior.
+Test buttons, forms, and interactive elements for proper behaviour.
 
 ```
 EXECUTE:
-├── take_snapshot() → identify all interactive elements (buttons, forms, links, inputs)
+├── agent-browser --session "$S" snapshot -i
+│   → identify all interactive elements
 ├── For buttons (up to depth limit):
-│   ├── click(selector) → verify response (navigation, state change, loading indicator)
-│   ├── wait_for("load" or "selector") → verify something happened
-│   ├── Check for: no response, JavaScript errors, broken states
-│   └── Navigate back if needed
+│   ├── agent-browser --session "$S" click "<sel>"
+│   │   or: agent-browser --session "$S" find role button click --name "..."
+│   ├── agent-browser --session "$S" wait --load networkidle
+│   └── Check for: no response, errors, broken states
 ├── For forms:
-│   ├── fill_form(selector, {}) → submit empty to test validation
-│   ├── Check for: meaningful error messages, not just silent failure
-│   ├── fill_form(selector, {test data}) → submit with test data
-│   │   Use: test@example.com, "Test User", "123 Test St", etc.
-│   ├── press_key("Enter") or click(submit_button) → submit
-│   └── Check for: success feedback, error handling, loading states
-├── For inputs:
-│   ├── fill(selector, value) → type into inputs
-│   ├── Check for: proper placeholder clearing, input masking, character limits
-│   └── press_key("Tab") → verify focus management
-├── SEVERITY: BLOCKER for interactive elements that throw JS errors on interaction
-│            BLOCKER for forms that fail silently (no validation, no feedback)
-│            WARNING for missing loading indicators, poor error messages
-│            WARNING for forms without client-side validation
-│            INFO for UX polish (focus management, keyboard shortcuts)
-└── Record: element selector/description, action performed, expected vs actual result
+│   ├── agent-browser --session "$S" fill "<sel>" ""      (empty — test validation)
+│   ├── agent-browser --session "$S" press "Enter"
+│   ├── agent-browser --session "$S" fill "<sel>" "<test-data>"
+│   └── agent-browser --session "$S" press "Enter"
+├── Oracle Tier: apply the resolution algorithm (oracle-contract.md L1→L2→L3-schema→L3-inferred→L4)
+│   using the pre-computed oracle set from Step 1b. DO NOT execute L2 again —
+│   reference l2_runner_output from Step 1b only.
+│   Default outcome: L4 (interactive element behaviour is governed by UX heuristics, not code contracts).
+│   L4 is correct when no spec/test/schema covers this interaction — always verify L1–L3 first:
+│     L1: a spec scenario for this button/form path → cite and use L1.
+│     L2: check l2_runner_output from Step 1b for a test covering this interaction. If yes, cite and use L2.
+│     L3-schema: a schema governing the form payload → cite and use L3-schema.
+├── SEVERITY: capped by the resolved tier (L4 advisory → WARNING max)
+└── Record: element selector, action, expected vs actual, resolved Oracle Tier, absence note
 ```
 
 **Safety**: NEVER click elements that appear destructive (Delete, Remove, Cancel subscription). NEVER submit payment forms. NEVER interact with logout unless part of an explicit user flow.
+
+**Cookie management** (when a user flow requires cookie inspection or pre-auth setup):
+```bash
+agent-browser --session "$S" cookies          # get all cookies (default operation)
+agent-browser --session "$S" cookies get      # explicit get (identical to above)
+agent-browser --session "$S" cookies set <name> <value> [--url <url>] [--httpOnly] [--secure]
+agent-browser --session "$S" cookies clear    # clear all cookies
+```
+Use `cookies set` in F2 (Session + Run Setup) to inject auth cookies before the first `open`, when the user flow requires pre-established authentication state.
 
 ### Step 6: Navigation Audit
 
@@ -163,51 +260,57 @@ Follow internal links and verify navigation integrity.
 
 ```
 EXECUTE:
-├── take_snapshot() → identify all internal links (same-domain hrefs)
+├── agent-browser --session "$S" snapshot -i
+│   → identify all internal links
 ├── For each internal link (up to depth limit):
-│   ├── navigate_page(href) → follow the link
-│   ├── wait_for("load") → ensure page loads
-│   ├── take_snapshot() → verify content rendered (not blank/error page)
-│   ├── Check for: 404 pages, error pages, blank pages, redirect loops
-│   └── Navigate back to continue
-├── Check fragment links (#anchors):
-│   ├── navigate_page(current_url + #fragment)
-│   ├── evaluate_script() → check if target element exists
-│   └── Report broken fragments
-├── SEVERITY: BLOCKER for links leading to 404/error pages on critical navigation
-│            WARNING for broken fragment links, dead-end pages (no navigation back)
-│            INFO for redirect chains, non-standard navigation patterns
-└── Record: source page, link href, destination status, error details
+│   ├── agent-browser --session "$S" open <href>
+│   ├── agent-browser --session "$S" wait --load networkidle
+│   └── agent-browser --session "$S" snapshot -i
+│       → verify content rendered (not blank / error page)
+├── Oracle Tier: apply the resolution algorithm (oracle-contract.md L1→L2→L3-schema→L3-inferred→L4)
+│   using the pre-computed oracle set from Step 1b. DO NOT execute L2 again —
+│   reference l2_runner_output from Step 1b only.
+│   Default outcome: L4 (navigation integrity is governed by HTTP semantics / Nielsen Heuristic #1).
+│   A spec scenario for a specific navigation path → L1.
+│   Absent L1–L3, cite: "Nielsen Heuristic #1 — Visibility of system status" or
+│   "RFC 7231 §6.5.4 — 404 Not Found" as appropriate.
+├── SEVERITY: capped by the resolved tier (L4 advisory → WARNING max)
+└── Record: source page, link href, destination status, resolved Oracle Tier, standard citation
 
 SAFETY: NEVER follow links to external domains. Only test same-origin navigation.
 ```
 
 ### Step 7: Responsive Audit
 
-Test the application at standard breakpoints for layout integrity.
+Test at standard breakpoints for layout integrity.
 
 ```
 EXECUTE:
 ├── For each viewport: [375x812 (mobile), 768x1024 (tablet), 1440x900 (desktop)]:
-│   ├── resize_page(width, height) → set viewport
-│   ├── wait_for("load") → allow layout reflow
-│   ├── take_snapshot() → capture DOM state at this viewport
-│   ├── take_screenshot() → capture visual state
-│   ├── evaluate_script() → check for:
-│   │   ├── Horizontal scrollbar (document.documentElement.scrollWidth > viewport width)
-│   │   ├── Elements overflowing viewport
-│   │   ├── Text truncation without ellipsis or overflow handling
-│   │   ├── Touch target sizes (< 44x44px on mobile)
-│   │   └── Viewport meta tag presence
-│   └── Check interactive elements still accessible at this viewport
-├── SEVERITY: BLOCKER for content completely inaccessible at any viewport
-│            BLOCKER for critical functionality hidden/unreachable on mobile
-│            WARNING for horizontal scroll on mobile, overlapping elements
-│            WARNING for touch targets too small (< 44px) on mobile
-│            INFO for layout polish, spacing adjustments
-└── Record: viewport size, issue description, affected elements
+│   ├── agent-browser --session "$S" set viewport <width> <height>
+│   ├── agent-browser --session "$S" wait --load networkidle
+│   ├── agent-browser --session "$S" snapshot -i
+│   ├── agent-browser --session "$S" screenshot <path>
+│   └── agent-browser --session "$S" eval --stdin
+│       <<'EOF'
+│       ({
+│         scrollWidth: document.documentElement.scrollWidth,
+│         viewportWidth: window.innerWidth,
+│         overflow: document.documentElement.scrollWidth > window.innerWidth
+│       })
+│       EOF
+│       (bare object expression — return is a syntax error in eval)
+├── Oracle Tier: apply the resolution algorithm (oracle-contract.md L1→L2→L3-schema→L3-inferred→L4)
+│   using the pre-computed oracle set from Step 1b. DO NOT execute L2 again —
+│   reference l2_runner_output from Step 1b only.
+│   Default outcome: L4 (responsive layout is governed by WCAG / CSS-level heuristics).
+│   A spec scenario covering a specific viewport behaviour → L1.
+│   Absent L1–L3, cite: "WCAG 2.1 SC 1.4.4 — Resize Text" or "WCAG 2.1 SC 1.4.10 — Reflow"
+│   as applicable. Overflow evidence alone (scrollWidth > viewportWidth) is heuristic → L4.
+├── SEVERITY: capped by the resolved tier (L4 advisory → WARNING max)
+└── Record: viewport size, issue description, affected elements, resolved Oracle Tier, standard citation
 
-Reset to 1440x900 (desktop) after completing responsive checks.
+Reset to desktop: agent-browser --session "$S" set viewport 1440 900
 ```
 
 ### Step 8: Performance Audit
@@ -216,53 +319,227 @@ Measure Core Web Vitals and identify performance bottlenecks.
 
 ```
 EXECUTE:
-├── Navigate fresh to URL (clean load for accurate metrics)
-├── performance_start_trace() → begin performance recording
-├── wait_for("load") → full page load
-├── performance_stop_trace() → end recording
-├── performance_analyze_insight() → get Chrome's analysis
-├── evaluate_script() → collect Web Vitals:
-│   ├── LCP (Largest Contentful Paint):
-│   │   new PerformanceObserver(list => ...).observe({type: 'largest-contentful-paint'})
-│   ├── CLS (Cumulative Layout Shift):
-│   │   new PerformanceObserver(list => ...).observe({type: 'layout-shift'})
-│   ├── FCP (First Contentful Paint):
-│   │   performance.getEntriesByName('first-contentful-paint')[0]
-│   └── Resource timing: performance.getEntriesByType('resource')
-├── Classify against Web Vitals thresholds:
-│   ├── LCP: Good < 2.5s, Needs Improvement < 4s, Poor >= 4s
-│   ├── CLS: Good < 0.1, Needs Improvement < 0.25, Poor >= 0.25
-│   ├── FCP: Good < 1.8s, Needs Improvement < 3s, Poor >= 3s
-│   └── INP: measure via interaction during Step 5 if possible
-├── SEVERITY: BLOCKER for any Core Web Vital in "Poor" range
-│            WARNING for any Core Web Vital in "Needs Improvement" range
-│            WARNING for render-blocking resources, large uncompressed assets
-│            INFO for optimization suggestions (lazy loading, code splitting, caching)
-└── Record: metric name, value, threshold, contributing factors
+├── agent-browser --session "$S" open <url>
+│   (fresh navigation for accurate metrics)
+├── agent-browser --session "$S" wait --load networkidle
+├── agent-browser --session "$S" vitals --json
+│   → LCP, CLS, TTFB, FCP, INP from the built-in vitals command
+│   (verified by live execution: vitals --json returns
+│    {"success":true,"data":{"cls":{"entries":[],"score":0.0},"fcp":92.0,
+│     "lcp":{"element":"p","size":12461,"startTime":92,"url":null},
+│     "ttfb":65.3,"inp":null,...},"error":null}
+│    Key fields: data.lcp.startTime (ms), data.cls.score, data.fcp (ms),
+│    data.ttfb (ms), data.inp — lcp and cls are OBJECTS, not scalars)
+│
+│   Fallback if vitals produces no output for a metric:
+│   agent-browser --session "$S" eval --stdin
+│   <<'EOF'
+│   ({
+│     lcp: (() => {
+│       const e = performance.getEntriesByType('largest-contentful-paint');
+│       return e.length ? e[e.length - 1].startTime : null;
+│     })(),
+│     cls: performance.getEntriesByType('layout-shift')
+│           .reduce((s, e) => !e.hadRecentInput ? s + e.value : s, 0),
+│     fcp: (() => {
+│       const e = performance.getEntriesByName('first-contentful-paint');
+│       return e.length ? e[0].startTime : null;
+│     })()
+│   })
+│   EOF
+│   (bare object expression with IIFEs — return is a syntax error in eval;
+│    getEntriesByType reads buffered entries synchronously, no observer needed)
+│
+│   IMPORTANT — LCP fallback null semantics (verified by live execution on about:blank):
+│   `getEntriesByType('largest-contentful-paint')` returns an EMPTY array on any page
+│   that was already loaded before this eval runs. LCP entries are only buffered during
+│   initial page load; once the page is loaded, the buffer is empty.
+│   Confirmed: eval on about:blank after `wait --load networkidle` returns lcp: null.
+│   A null result MUST be reported as "LCP unavailable via fallback — entries not buffered
+│   (page already loaded)" and treated as UNGROUNDED (INFO, not a rating of "Good").
+│   NEVER report a null LCP fallback as "Good", "N/A (passing)", or any passing status.
+│
+├── Oracle Tier: apply the resolution algorithm (oracle-contract.md L1→L2→L3-schema→L3-inferred→L4)
+│   using the pre-computed oracle set from Step 1b. DO NOT execute L2 again —
+│   reference l2_runner_output from Step 1b only.
+│   Default outcome: L4 — CWV metrics are always grounded in the named Web Vitals standard.
+│   Performance expectations are not typically expressed as code contracts; L4 is the correct tier.
+│   Exception: a spec scenario with a specific LCP or CLS budget → L1 (cite path + verbatim budget).
+├── Classify against Web Vitals thresholds (L4 cap — WARNING max, never BLOCKER):
+│   ├── LCP: Good < 2500ms (data.lcp.startTime), Needs Improvement < 4000ms, Poor >= 4000ms
+│   ├── CLS: Good < 0.1 (data.cls.score), Needs Improvement < 0.25, Poor >= 0.25
+│   └── FCP: Good < 1800ms (data.fcp), Needs Improvement < 3000ms, Poor >= 3000ms
+├── SEVERITY: WARNING for any "Poor" or "Needs Improvement" metric (L4 cap)
+└── Record: metric name, raw value (field path), threshold, resolved Oracle Tier
+   L4 citation: "Web Vitals — LCP threshold 2500 ms (Good boundary)"
 ```
 
-### Step 9: User Flow Testing
+### Step 9: User Flow Testing (Flow Engine)
 
-If specific user flows were provided, execute them step by step.
+If specific user flows were provided, execute them step by step using the full flow engine.
 
+**F0 — Precondition**: read preflight cache. If `runtime_available` is not `true`, skip. (This mirrors Step 1; Step 9 never runs without a confirmed runtime backend.)
+
+**F1 — Oracle Sourcing** (once per flow, before any browser action):
+- L1: glob `openspec/changes/*/specs/**/*.md`, parse Given/When/Then scenarios.
+- L2: if `qa-init` recorded a test command, EXECUTE it and read the output. "Tests exist" is not L2.
+- L3: scan for schema files (L3-schema), then validation regexes and error-message literals (L3-inferred).
+- L4: always available — named WCAG SC, RFC section, CWV metric name + threshold, or Nielsen heuristic number.
+
+**F2 — Session + Run Setup**:
+```bash
+# Reuse session if already established in Step 1; derive a new one only if not set.
+# Reason: reusing the session preserves auth cookies set in Step 1. A fresh derivation
+# here would produce a clean session with no auth state, causing auth walls to be
+# misreported as application defects rather than harness problems.
+S="${S:-$(agent-browser session id --scope worktree --prefix qase)}"
+QASE_RUN_ID="$(date +%s)-$(openssl rand -hex 3)"
+
+# Derive the flow slug and evidence directory using the canonical algorithm from
+# openspec-convention.md §Slug Derivation Algorithms → {flow-slug}:
+#   1. Lowercase the flow name.
+#   2. Replace every non-[a-z0-9] char with a hyphen.
+#   3. Collapse consecutive hyphens to one; strip leading/trailing hyphens.
+# EVID: the per-flow binary artifact directory, rooted at the review's flow-evidence subtree.
+FLOW_SLUG="$(echo "<flow-name>" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/-\+/-/g' | sed 's/^-//;s/-$//')"
+EVID="qaspec/reviews/${REVIEW_ID}/flow-evidence/${FLOW_SLUG}"
+# <flow-name> must be substituted with the actual flow name at runtime.
+# ${REVIEW_ID} is the review ID passed by the orchestrator (e.g., "2024-01-15-auth-refactor").
 ```
-FOR EACH user flow:
-├── Start at the flow's entry point
-├── For each step in the flow:
-│   ├── Execute the action (click, fill, navigate, etc.)
-│   ├── wait_for(expected result) → verify step completed
-│   ├── take_snapshot() → capture state after step
-│   ├── Check console for new errors
-│   ├── Check network for failed requests
-│   └── If step fails: record failure point and continue to next flow
-├── At flow end: verify expected final state
-├── SEVERITY: BLOCKER for user flow that cannot complete (critical path broken)
-│            WARNING for flow that completes but with errors/warnings
-│            INFO for flow UX improvements
-└── Record: flow name, steps completed, failure point (if any), final state
+Write flow evidence header and Test Data Ledger skeleton (see `skills/_shared/qase/issue-format.md` — Flow Evidence Format).
 
-If NO user flows provided: skip this step and note in report.
+**F3 — Flow Open**:
+```bash
+agent-browser --session "$S" open <url>
+agent-browser --session "$S" wait --load networkidle
+# deep / on request only:
+agent-browser --session "$S" network har start
+agent-browser --session "$S" record start "${EVID}/recordings/${FLOW_SLUG}.webm"
 ```
+
+**Per-step loop** — repeat for each step N:
+
+**S1 Clear buffers** (mandatory before each step N ≥ 2; acceptable but not required for step 1):
+```bash
+agent-browser --session "$S" console --clear
+agent-browser --session "$S" errors --clear
+agent-browser --session "$S" network requests --clear
+```
+Each step owns its own console, error, and network record. Clearing is what makes per-step attribution honest.
+
+**S2 Optional fault injection** (only when the step declares one):
+```bash
+# abort a route:
+agent-browser --session "$S" network route "{url-pattern}" --abort
+# mock a response:
+agent-browser --session "$S" network route "{url-pattern}" --body '{"error":"boom"}'
+```
+
+**S3 Act** — ONE of the following per step:
+```bash
+agent-browser --session "$S" find role button click --name "Sign In"
+agent-browser --session "$S" click "<sel>"
+agent-browser --session "$S" click @e7
+agent-browser --session "$S" fill "<sel>" "qase+$QASE_RUN_ID@example.com"
+agent-browser --session "$S" press "Enter"
+agent-browser --session "$S" type "<sel>" "<text>"
+agent-browser --session "$S" check "<sel>"
+agent-browser --session "$S" select "<sel>" "<value>"
+agent-browser --session "$S" scroll down
+```
+
+Unique identity template for write flows:
+- email: `qase+{QASE_RUN_ID}@example.com`
+- display name: `QASE Test {QASE_RUN_ID}`
+- password: `Qase-{QASE_RUN_ID}!`
+- org/team: `qase-{QASE_RUN_ID}`
+
+**S4 Settle** — pick the narrowest that applies:
+```bash
+agent-browser --session "$S" wait --url "**/dashboard"
+agent-browser --session "$S" wait --text "Welcome back"
+agent-browser --session "$S" wait "<selector>"
+agent-browser --session "$S" wait --load networkidle
+agent-browser --session "$S" wait --fn "!document.body.innerText.includes('Loading...')"
+```
+
+**S5 Observe**:
+```bash
+agent-browser --session "$S" get url
+agent-browser --session "$S" get title
+agent-browser --session "$S" get text "<sel>"
+agent-browser --session "$S" is visible "<sel>"
+agent-browser --session "$S" snapshot -i
+```
+
+**S6 Harvest per-step diagnostics**:
+```bash
+agent-browser --session "$S" console --json          # → console/step-NN.json
+agent-browser --session "$S" errors --json           # → errors/step-NN.json
+agent-browser --session "$S" network requests --json # → network/step-NN.json
+# for each request with status >= 400 (standard + deep):
+agent-browser --session "$S" network request <requestId>
+```
+
+**S7 Capture artifact** (every step, always — proposal success criterion 13):
+```bash
+# ${EVID} is defined in F2: "qaspec/reviews/${REVIEW_ID}/flow-evidence/${FLOW_SLUG}"
+agent-browser --session "$S" screenshot "${EVID}/screenshots/step-NN.png"
+# deep: agent-browser --session "$S" screenshot --full "${EVID}/screenshots/step-NN.png"
+# when finding points at element: agent-browser --session "$S" screenshot --annotate "${EVID}/screenshots/step-NN.png"
+```
+
+**S8 Resolve expectation**: run the Oracle Resolution Algorithm from `oracle-contract.md` (L1→L2→L3-schema→L3-inferred→L4). Validate the tier claim; downgrade if citation fails.
+
+**S9 Classify**: `PASS | FAIL — BLOCKER | FAIL — WARNING | INCONCLUSIVE | SKIPPED`. Severity capped by the Oracle Tier blocking matrix. Bare `FAIL` is invalid.
+
+**S10 Teardown of step scope** (runs even on FAIL or INCONCLUSIVE):
+```bash
+# if a route was installed in S2:
+agent-browser --session "$S" network unroute "{url-pattern}"
+```
+If `network unroute` exits non-zero → **abort the flow immediately**. Later steps would run against a contaminated network layer; their evidence would be unreliable. This is the one condition where the degradation principle does NOT apply.
+
+**S11 Emit evidence row**: write the completed row to the flow evidence document with all six required fields: Action | Observed | Expected | Oracle Tier | Status | Artifact.
+
+**Daemon reconnection branch** (any of S1–S7 exits non-zero with connection/daemon error):
+```bash
+agent-browser --session "$S" session info --json
+# if daemon dead: relaunch and re-establish auth state:
+agent-browser --session "$S" open <url>
+# retry the current step ONCE
+```
+- Retry succeeds → continue, annotate the evidence row "backend reconnected mid-step".
+- Retry fails → step = INCONCLUSIVE, abort flow as PARTIAL, flow-level WARNING "runtime backend lost".
+- **INVARIANT**: daemon loss is NEVER reported as an application defect and NEVER produces FAIL.
+
+**F4 — Flow Teardown** (after all steps):
+```bash
+agent-browser --session "$S" network unroute     # belt-and-suspenders — removes all routes
+agent-browser --session "$S" record stop         # if recording was started
+agent-browser --session "$S" network har stop "${EVID}/har/${FLOW_SLUG}.har"   # if HAR was started
+# invoke detected_cleanup_hook if qa-init recorded one — otherwise do nothing
+# do NOT close until after the last flow; later flows reuse the session
+```
+After the last flow:
+```bash
+agent-browser --session "$S" close
+```
+**NEVER** use `agent-browser close --all` — it closes all active sessions including other agents' concurrent runs.
+
+**F5 — Flow Summary + Test Data Ledger + Persist**:
+- Produce the Flow Summary table per `issue-format.md` — Flow Evidence Format.
+- Produce the Test Data Ledger: every identity and record created; if read-only flow, record `—` (not omit). Note whether a cleanup hook was invoked and its result.
+- Persist: openspec → `qaspec/reviews/{review-id}/flow-evidence/{flow-slug}.md`; engram → `qase/{review-id}/flow-evidence/{flow-slug}`.
+
+**Write-flow and safety rules**:
+- Production write flows are refused and reported as SKIPPED with a reason — never silently omitted.
+- Write flows are opt-in per flow — never discover and exercise a form autonomously.
+- Unique identities are mandatory for any write-flow field (QASE_RUN_ID template above).
+- Named sessions (`--session "$S"`) isolate cookies and client storage — they do NOT isolate server-side database state. The Test Data Ledger is the record of what was created.
+- **Never** `agent-browser close --all`.
+
+**If NO user flows provided**: skip this step and note in report.
 
 ### Step 10: Apply Dismissed Patterns + Produce Report + Persist
 
@@ -282,12 +559,13 @@ FOR EACH finding:
 **Review ID**: {review-id}
 **URL tested**: {url}
 **Pages visited**: {count}
+**Runtime available**: {true | false | skipped}
 **Philosophy**: "If a user can break it, they will"
 
 ### Findings
 
 #### BLOCKERs
-{findings}
+{findings — L1/L2/L3-schema tier only; L4 findings cannot appear here}
 
 #### WARNINGs
 {findings}
@@ -299,23 +577,27 @@ FOR EACH finding:
 
 | Category | Status | Findings |
 |----------|--------|----------|
-| Console Errors | {CLEAN/HAS_ERRORS/CRITICAL} | {count} |
+| Console Errors | {CLEAN/HAS_ERRORS} | {count} |
 | Network Health | {HEALTHY/DEGRADED/BROKEN} | {count} |
-| Accessibility | {COMPLIANT/VIOLATIONS/CRITICAL} | {count} |
+| Accessibility | {COMPLIANT/VIOLATIONS} | {count} |
 | Interactive Elements | {WORKING/ISSUES/BROKEN} | {count} |
 | Navigation | {INTACT/GAPS/BROKEN} | {count} |
 | Responsive Layout | {SOLID/ISSUES/BROKEN} | {count} |
 | Performance (CWV) | {GOOD/NEEDS_WORK/POOR} | {count} |
-| User Flows | {PASSING/PARTIAL/FAILING} | {count} |
+| User Flows | {PASSING/PARTIAL/FAILING/SKIPPED} | {count} |
 
 ### Core Web Vitals
 
-| Metric | Value | Rating |
-|--------|-------|--------|
-| LCP | {value}s | {Good/Needs Improvement/Poor} |
-| CLS | {value} | {Good/Needs Improvement/Poor} |
-| FCP | {value}s | {Good/Needs Improvement/Poor} |
-| INP | {value}ms | {Good/Needs Improvement/Poor or N/A} |
+| Metric | Value | Rating | Oracle Tier |
+|--------|-------|--------|-------------|
+| LCP | {data.lcp.startTime}ms | {Good/Needs Improvement/Poor} | L4 |
+| CLS | {data.cls.score} | {Good/Needs Improvement/Poor} | L4 |
+| FCP | {data.fcp}ms | {Good/Needs Improvement/Poor} | L4 |
+| INP | {data.inp}ms | {Good/Needs Improvement/Poor or N/A} | L4 |
+
+Note: `vitals --json` returns `lcp` as an object (`{element, size, startTime, url}`) — render
+`data.lcp.startTime`. Similarly `cls` is `{entries[], score}` — render `data.cls.score`.
+Scalar fields (`fcp`, `ttfb`, `inp`) are returned directly as numbers (ms) or null.
 
 ---
 ## Metadata
@@ -328,6 +610,9 @@ FOR EACH finding:
 - **warnings**: {count}
 - **infos**: {count}
 - **verdict-contribution**: CLEAN | HAS_WARNINGS | HAS_BLOCKERS
+- **oracle_tier_breakdown**: { L1: {n}, L2: {n}, L3-schema: {n}, L3-inferred: {n}, L4: {n} }
+- **flow-evidence**: {path | topic_key | none}
+- **runtime-available**: true | false
 ---
 ```
 
@@ -341,29 +626,38 @@ Return structured envelope with: `status`, `executive_summary`, `artifacts`, `ve
 
 ## Depth Controls
 
-| Level | Scope |
-|-------|-------|
-| **concise** | Steps 1-4 only (connection, console, network, accessibility). No interactive exploration. |
-| **standard** | All steps. Max 10 interactive elements tested, 1 level of link following, max 20 pages total. |
-| **deep** | All steps. All interactive elements tested, 2 levels of link following, all viewports, include INFO findings. |
+| Level | Artifact Scope |
+|-------|---------------|
+| **concise** | Steps 1–4 only. Per-step screenshot (required). Per-step console/errors JSON. Network summary counts only. No HAR. No recording. |
+| **standard** | All steps. Per-step screenshot. Full network JSON. Per-step network JSON. `--annotate` only when a finding points at an element. Max 10 interactive elements, 1 level of link following, max 20 pages. |
+| **deep** | All steps. `--full` screenshots. `network request <id>` detail for status ≥ 400. HAR. WebM recording. All interactive elements, 2 levels of link following. Include INFO findings. |
+
+Per-step screenshot is never optional: proposal success criterion 13 requires at least one artifact path per step.
 
 ## Safety Rules
 
 - **NEVER** click buttons that appear destructive (Delete, Remove, Cancel, Unsubscribe, etc.) unless they are part of an explicit user flow
 - **NEVER** submit payment forms or interact with payment elements
 - **NEVER** follow links to external domains — only test same-origin navigation
-- **NEVER** enter real credentials — use only test data (`test@example.com`, `Test User 123`, `555-0100`)
+- **NEVER** enter real credentials — use only test data with the QASE_RUN_ID template
+- **NEVER** use `agent-browser close --all` — it closes other agents' sessions
 - If authentication is required but no credentials were provided → report as a NOTE, test only public/unauthenticated pages
-- If the application is a production environment → operate in read-mostly mode; prefer observation over interaction
+- If the target URL is identified as a production environment → write flows are refused and reported as SKIPPED
 - Limit total page navigations to avoid overwhelming the application
+- Unique identities are mandatory for any write-flow field; repeating the same identity across runs is a failure of this contract
 
 ## Rules
 
-- ALWAYS start by establishing connection and checking basic health (Steps 1-3) before deeper analysis
-- ALWAYS capture evidence (console messages, network details, snapshots) for every finding
-- Do NOT report issues caused by the testing environment itself (e.g., DevTools artifacts)
+- ALWAYS read the preflight cache (Step 1) before any browser command; SKIP and return clean if unavailable
+- ALWAYS start by establishing connection and checking basic health (Steps 1–3) before deeper analysis
+- ALWAYS capture evidence (console messages, network details, snapshots, screenshots) for every finding
+- ALWAYS assign an Oracle Tier to every finding, resolved per `oracle-contract.md`
+- ALWAYS include an Oracle Absence note when the result is below L3-schema
+- Do NOT report daemon/session loss as an application defect — it is INCONCLUSIVE
+- Do NOT report issues caused by the testing environment itself (e.g., extension errors)
+- Always use `wait --load networkidle` for load-state waits; the bare form without `--load` is rejected by agent-browser
+- Global flags (`--session`, `--restore`) precede the subcommand: `agent-browser --session "$S" open <url>`
 - Be practical — focus on issues that real users would encounter
-- "Senior Suggestion" MUST include actionable fixes (code snippets, configuration changes, or specific remediation steps)
 - Skip findings that match dismissed patterns
-- When axe-core injection fails (CSP restrictions, etc.), note it and rely on manual snapshot-based accessibility review
+- When `eval --stdin` injection fails (CSP restrictions), note the degradation and rely on snapshot-based analysis
 - Return a structured envelope with: `status`, `executive_summary`, `artifacts`, `verdict_contribution`, and `risks`

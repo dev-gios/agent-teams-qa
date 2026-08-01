@@ -1,5 +1,7 @@
 # Engram Artifact Convention (shared across all QASE skills)
 
+See `skills/_shared/qase/oracle-contract.md` for tier semantics and evidence citation requirements referenced throughout this file.
+
 ## Naming Rules
 
 ALL QASE artifacts persisted to Engram MUST follow this deterministic naming:
@@ -14,6 +16,18 @@ project:   {detected or current project name}
 scope:     project
 ```
 
+### Flow Evidence (per-flow)
+
+```
+title:     qase/{review-id}/flow-evidence/{flow-slug}
+topic_key: qase/{review-id}/flow-evidence/{flow-slug}
+type:      architecture
+project:   {detected or current project name}
+scope:     project
+```
+
+`{flow-slug}` is a kebab-case slug of the flow name (e.g., `user-login-flow`). One artifact per flow per review.
+
 ### Project Init (project-scoped, long-lived)
 
 ```
@@ -23,6 +37,16 @@ type:      architecture
 project:   {detected or current project name}
 scope:     project
 ```
+
+### Preflight Cache (project-scoped, long-lived, 24 h TTL)
+
+```
+title:     qa-init/{project-name}/preflight
+topic_key: qa-init/{project-name}/preflight
+type:      architecture
+```
+
+Written by `qa-init` only. `qa-browser` and `qa-visual` read this artifact; they MUST NOT write it. See `persistence-contract.md` for the full schema and TTL/freshness rule.
 
 ### Feedback (project-scoped, persistent)
 
@@ -50,6 +74,10 @@ scope:     project
 | `final-report` | qa-report | Consensus verdict |
 | `actionable-issues` | qa-report | Bridge artifact for SDD integration |
 | `feedback` | qa-feedback | Dismissal pattern (under feedback/ path) |
+| `flow-evidence` | qa-browser | Per-flow step-by-step executed evidence document (topic_key: `qase/{review-id}/flow-evidence/{flow-slug}`) |
+| `preflight-cache` | qa-init | Runtime backend capability cache (single writer: qa-init; 24 h TTL) |
+
+> **Note**: Engram stores markdown only. Binary artifact PATHS are recorded with an `(ephemeral)` marker; binary artifact bytes are not stored. Screenshots, `.webm` recordings, and `.har` files are written to a run-scoped temp directory and referenced by absolute path. See `persistence-contract.md` for the binary artifact rule.
 
 ### Example
 

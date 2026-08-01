@@ -1,10 +1,19 @@
 # OpenSpec File Convention (shared across all QASE skills)
 
+See `skills/_shared/qase/oracle-contract.md` for tier semantics and citation requirements referenced in flow evidence and baseline diff paths below.
+
 ## Directory Structure
 
 ```
 qaspec/
 ├── config.yaml              <- Project-specific QASE config
+├── init.yaml                <- Project context from qa-init
+├── preflight-cache.yaml     <- NEW, written by qa-init only
+├── baselines/               <- NEW, persists ACROSS reviews
+│   └── {page-slug}/
+│       ├── 1440x900.png
+│       ├── 768x1024.png
+│       └── 375x812.png
 ├── reviews/                 <- Review artifacts
 │   ├── archive/             <- Completed reviews (YYYY-MM-DD-{scope-slug}/)
 │   └── {review-id}/         <- Active review folder
@@ -17,18 +26,28 @@ qaspec/
 │       ├── test-strategy.md <- from qa-test-strategy
 │       ├── browser.md       <- from qa-browser
 │       ├── visual.md        <- from qa-visual
-│       └── report.md        <- from qa-report (final verdict)
+│       ├── report.md        <- from qa-report (final verdict)
+│       ├── visual-diffs/    <- NEW, diff output (per review)
+│       │   └── {page-slug}-{viewport}.png
+│       └── flow-evidence/   <- NEW
+│           ├── {flow-slug}.md               <- the evidence document
+│           └── {flow-slug}/                 <- binary artifacts for this flow
+│               ├── screenshots/step-01.png ... step-NN.png
+│               ├── console/step-01.json    ... step-NN.json
+│               ├── errors/step-01.json     ... step-NN.json
+│               ├── network/step-01.json    ... step-NN.json
+│               ├── har/{flow-slug}.har          (deep / on request)
+│               └── recordings/{flow-slug}.webm  (deep / on request)
 ├── feedback/                <- Persistent feedback (survives across reviews)
 │   └── {agent}/
 │       └── {pattern-slug}.md
-└── init.yaml                <- Project context from qa-init
 ```
 
 ## Artifact File Paths
 
 | Skill | Creates / Reads | Path |
 |-------|----------------|------|
-| qa-init | Creates | `qaspec/config.yaml`, `qaspec/init.yaml`, `qaspec/reviews/`, `qaspec/feedback/`, `qaspec/reviews/archive/` |
+| qa-init | Creates | `qaspec/config.yaml`, `qaspec/init.yaml`, `qaspec/reviews/`, `qaspec/feedback/`, `qaspec/reviews/archive/`, `qaspec/preflight-cache.yaml` |
 | qa-scan | Creates | `qaspec/reviews/{review-id}/scan.md` |
 | qa-architect | Creates | `qaspec/reviews/{review-id}/architect.md` |
 | qa-advocate | Creates | `qaspec/reviews/{review-id}/advocate.md` |
@@ -36,8 +55,8 @@ qaspec/
 | qa-inclusion | Creates | `qaspec/reviews/{review-id}/inclusion.md` |
 | qa-performance | Creates | `qaspec/reviews/{review-id}/performance.md` |
 | qa-test-strategy | Creates | `qaspec/reviews/{review-id}/test-strategy.md` |
-| qa-browser | Creates | `qaspec/reviews/{review-id}/browser.md` |
-| qa-visual | Creates | `qaspec/reviews/{review-id}/visual.md` |
+| qa-browser | Creates | `qaspec/reviews/{review-id}/browser.md`, `qaspec/reviews/{review-id}/flow-evidence/{flow-slug}.md`, and the artifact subtree `qaspec/reviews/{review-id}/flow-evidence/{flow-slug}/` (screenshots referenced by path relative to the review directory, e.g., `flow-evidence/{flow-slug}/screenshots/step-01.png`) |
+| qa-visual | Creates | `qaspec/reviews/{review-id}/visual.md`, `qaspec/reviews/{review-id}/visual-diffs/{page-slug}-{viewport}.png`; reads and writes `qaspec/baselines/{page-slug}/{viewport}.png` |
 | qa-report | Creates | `qaspec/reviews/{review-id}/report.md` |
 | qa-feedback | Creates | `qaspec/feedback/{agent}/{pattern-slug}.md` |
 
@@ -67,6 +86,45 @@ Feedback:   qaspec/feedback/{agent}/  (all files in directory)
 - If a file already exists, READ it first and UPDATE it (don't overwrite blindly)
 - Use the `qaspec/config.yaml` to apply project-specific constraints
 - Feedback files are NEVER inside reviews — they live in `qaspec/feedback/` and persist across reviews
+- Visual baselines persist ACROSS reviews and MUST live at `qaspec/baselines/`, never inside a `reviews/{review-id}/` directory. A baseline inside a review folder cannot be diffed against by the next review — the same reason feedback files never live inside reviews.
+- Visual diff *outputs* are per-review and belong in `qaspec/reviews/{review-id}/visual-diffs/`. Visual diff *inputs* (baselines) are cross-review and belong in `qaspec/baselines/`.
+- `{flow-slug}` is a kebab-case slug of the flow name. Step index `NN` is zero-padded, one-based, matching the evidence row numbering exactly (e.g., `step-01.png`, `step-02.png`).
+
+## Slug Derivation Algorithms
+
+These are the canonical, deterministic algorithms for deriving slugs from URLs and flow names. **All skills MUST use these exact rules** — two runs against the same input must produce the same slug, or baselines are silently never reused.
+
+### `{page-slug}` — from a URL
+
+```
+1. Take the URL path component (strip protocol, host, query string, and fragment).
+2. Normalize: lowercase, collapse consecutive slashes to one, strip trailing slash.
+3. Special case: empty path (i.e., the root URL "/") → slug is "root".
+4. Replace every character that is NOT [a-z0-9] with a hyphen.
+5. Collapse consecutive hyphens to one.
+6. Strip leading and trailing hyphens.
+```
+
+Examples:
+- `https://app.example.com/`           → `root`
+- `https://app.example.com/dashboard`  → `dashboard`
+- `https://app.example.com/auth/login` → `auth-login`
+- `https://app.example.com/users/42`   → `users-42`
+- `https://app.example.com/settings/profile/?tab=security` → `settings-profile`
+
+### `{flow-slug}` — from a flow name
+
+```
+1. Lowercase the flow name.
+2. Replace every character that is NOT [a-z0-9] with a hyphen.
+3. Collapse consecutive hyphens to one.
+4. Strip leading and trailing hyphens.
+```
+
+Examples:
+- `"User Registration Flow"` → `user-registration-flow`
+- `"Login + 2FA (Mobile)"`   → `login-2fa-mobile`
+- `"Sign In"`                → `sign-in`
 
 ## Config File Reference
 
