@@ -82,16 +82,24 @@ VERDICT:
 
 `base_verdict` is computed by Gate 1 + Gate 2 above and is NEVER altered by coverage.
 
+`runtime_coverage` enum: `verified | partial | not-required | unverified`
+
+- `verified` — specialists ran AND `changed_surface_exercised: yes` for every specialist
+- `partial` — specialists ran AND at least one returned `changed_surface_exercised: no` or `partial`; also emitted when `changed_surface_exercised` is ABSENT (fail-closed)
+- `not-required` — runtime was not recommended for this change
+- `unverified` — specialists did not run (refused, unavailable, or user-declined)
+
 ```
 runtime_suffix(runtime_coverage, base_verdict):
-    IF runtime_coverage != unverified            → ""     (empty string)
-    IF base_verdict IN {REJECT, REJECT (VETO)}   → ""     (REJECT understates nothing)
-    ELSE                                         → " (STATIC ONLY)"
+    IF runtime_coverage IN {verified, not-required}  → ""               (empty string)
+    IF base_verdict IN {REJECT, REJECT (VETO)}       → ""               (REJECT understates nothing)
+    IF runtime_coverage == partial                   → " (RUNTIME PARTIAL)"
+    IF runtime_coverage == unverified                → " (STATIC ONLY)"
 
 rendered_verdict = base_verdict + runtime_suffix(runtime_coverage, base_verdict)
 ```
 
-The `(STATIC ONLY)` literal is owned exclusively by this file within `skills/` and `agents/` — those directories MUST NOT restate it (enforced by the `static-only-qualifier` rule in `rule-ownership.md`, scope: `skills/**,agents/**`). Orchestrator documents under `examples/` MUST restate it verbatim inside the `{runtime_suffix}` resolution block so a literal reader can resolve the token without cross-referencing this file.
+The `(STATIC ONLY)` literal is owned exclusively by this file within `skills/` and `agents/` — those directories MUST NOT restate it (enforced by the `static-only-qualifier` rule in `rule-ownership.md`, scope: `skills/**,agents/**`). The `(RUNTIME PARTIAL)` literal is co-owned by this file; the same `skills/**,agents/**` exclusion applies — it is enforced by the `runtime-partial-qualifier` rule in `rule-ownership.md`. Orchestrator documents under `examples/` MUST restate both literals verbatim inside the `{runtime_suffix}` resolution block so a literal reader can resolve the token without cross-referencing this file.
 
 ## Severity Assignment Guidelines
 

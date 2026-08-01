@@ -102,8 +102,16 @@ runtime_coverage =
         → runtime_unverified_reason = null
 
     ELSE IF every agent in runtime_recommendation.specialists returned
-             status: success AND verdict_contribution != UNVERIFIED:
+             status: success AND verdict_contribution != UNVERIFIED
+             AND changed_surface_exercised == "yes" for every specialist:
         → verified
+        → runtime_unverified_reason = null
+
+    ELSE IF every agent in runtime_recommendation.specialists returned
+             status: success AND verdict_contribution != UNVERIFIED
+             AND at least one specialist returned changed_surface_exercised IN {"no", "partial"}
+                 OR changed_surface_exercised is ABSENT for any specialist:
+        → partial                       ← FAIL-CLOSED: absent changed_surface_exercised ≠ verified
         → runtime_unverified_reason = null
 
     ELSE:
@@ -111,9 +119,10 @@ runtime_coverage =
         → runtime_unverified_reason = (value forwarded by orchestrator from the refusal branch)
 ```
 
-Partial coverage (e.g., `qa-browser` ran successfully but `qa-visual` refused) resolves to
-`unverified`. Coverage is all-or-nothing per recommendation. Understating what was checked is safe;
-overstating it is the defect this change exists to remove.
+Coverage is fail-closed at two levels: (1) specialists that did not run resolve to `unverified`
+(unchanged); (2) specialists that ran but did not declare `changed_surface_exercised: yes` resolve
+to `partial` — an absent field is treated as `no`, never as `yes`. Understating what was checked
+is safe; overstating it is the defect this contract exists to remove.
 
 **Result**: set `runtime_coverage` and `runtime_unverified_reason` for use in Step 6 rendering and
 Step 8 metadata.
@@ -238,6 +247,22 @@ CALCULATE:
 
 {If findings were dismissed from feedback: "Note: {N} previously dismissed patterns were skipped. Run `/qa-feedback` to review dismissals."}
 
+{IF runtime_coverage == partial:}
+### Unverified / Partial Coverage
+
+Runtime verification ran but did not reach the changed surface for one or more specialists.
+
+| Specialist | Changed surface exercised | Note |
+|---|---|---|
+| {specialist} | {changed_surface_exercised value} | {changed_surface_note verbatim, or — if yes} |
+
+The changed code was not executed. Findings above reflect the reachable surface only.
+To close the gap, re-run with credentials or a user flow that reaches the changed area:
+
+    /qa-browser <url> --flow "navigate to <changed surface>"
+
+{END IF}
+
 {IF runtime_coverage == unverified:}
 ### Unverified Coverage
 
@@ -268,7 +293,7 @@ loaded, or executed. To close the gap:
 - **oracle_tier_breakdown**: { L1: {n}, L2: {n}, L3-schema: {n}, L3-inferred: {n}, L4: {n} }
 - **specialists-consulted**: [{list}]
 - **dismissed-patterns-skipped**: {N}
-- **runtime_coverage**: {verified | not-required | unverified}
+- **runtime_coverage**: {verified | partial | not-required | unverified}
 - **runtime_unverified_reason**: {null | one enum value from persistence-contract.md}
 ---
 ```
@@ -317,7 +342,7 @@ blockers: {N}
 warnings: {N}
 infos: {N}
 hotspot_files: [{top 3 files with most findings}]
-runtime_coverage: verified | not-required | unverified
+runtime_coverage: verified | partial | not-required | unverified
 runtime_unverified_reason: {enum value from persistence-contract.md or null}
 next_recommended: "{based on verdict}"
 risks:

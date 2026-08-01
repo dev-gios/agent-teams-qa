@@ -54,6 +54,7 @@ positive fixture otherwise.
 | tier-ceiling-l3i | skills/_shared/qase/oracle-contract.md | A BLOCKER arriving at L3-inferred | skills/**,agents/** | — | 0 |
 | no-auto-start | skills/_shared/qase/routing-rules.md | MUST NOT execute detected_start_hints | skills/**,agents/**,examples/** | — | 0 |
 | static-only-qualifier | skills/_shared/qase/severity-contract.md | (STATIC ONLY) | skills/**,agents/** | — | 0 |
+| runtime-partial-qualifier | skills/_shared/qase/severity-contract.md | (RUNTIME PARTIAL) | skills/**,agents/** | — | 0 |
 <!-- /coherence:table -->
 
 <!-- coherence:table required -->
@@ -65,6 +66,7 @@ positive fixture otherwise.
 | orch-url-precedence | ### Runtime URL Resolution (ADR-C) | examples/claude-code/CLAUDE.md,examples/vscode/copilot-instructions.md,examples/cursor/.cursorrules,examples/gemini-cli/GEMINI.md,examples/codex/agents.md,examples/antigravity/qase-orchestrator.md,examples/opencode/opencode.json | 1 |
 | orch-runtime-step | Step 2b | examples/claude-code/CLAUDE.md,examples/vscode/copilot-instructions.md,examples/cursor/.cursorrules,examples/gemini-cli/GEMINI.md,examples/codex/agents.md,examples/antigravity/qase-orchestrator.md,examples/opencode/opencode.json | 1 |
 | orch-runtime-suffix | {runtime_suffix} | examples/claude-code/CLAUDE.md,examples/vscode/copilot-instructions.md,examples/cursor/.cursorrules,examples/gemini-cli/GEMINI.md,examples/codex/agents.md,examples/antigravity/qase-orchestrator.md,examples/opencode/opencode.json | 1 |
+| orch-runtime-partial-suffix | (RUNTIME PARTIAL) | examples/claude-code/CLAUDE.md,examples/vscode/copilot-instructions.md,examples/cursor/.cursorrules,examples/gemini-cli/GEMINI.md,examples/codex/agents.md,examples/antigravity/qase-orchestrator.md,examples/opencode/opencode.json | 1 |
 | orch-probe-exit-code | Key off the exit code | examples/claude-code/CLAUDE.md,examples/vscode/copilot-instructions.md,examples/cursor/.cursorrules,examples/gemini-cli/GEMINI.md,examples/codex/agents.md,examples/antigravity/qase-orchestrator.md,examples/opencode/opencode.json | 1 |
 <!-- /coherence:table -->
 
@@ -139,6 +141,8 @@ positive fixture otherwise.
 | {url-pattern} | descriptive | — | — |
 | {verdict} | descriptive | — | — |
 | {runtime_suffix} | derived | skills/_shared/qase/severity-contract.md | ### Runtime Coverage Suffix |
+| {changed_surface_exercised} | descriptive | — | — |
+| {changed_surface_note} | descriptive | — | — |
 | {triggering-categories} | descriptive | — | — |
 | {runtime-reason} | descriptive | — | — |
 | {viewport_a} | descriptive | — | — |

@@ -574,7 +574,27 @@ check_c11_coverage_resolution_mapping() {
         c11_ok=0
     fi
 
-    [ "$c11_ok" -eq 1 ] && pass "C11 coverage-resolution-mapping: Step 3b ELSE→unverified, envelope has runtime_coverage + runtime_unverified_reason"
+    # (d) Step 3b must resolve absent changed_surface_exercised to partial, not verified.
+    # Positive check: the phrase "ABSENT" (or "is ABSENT") must appear near "partial" in Step 3b.
+    # This guards against a flip where missing field silently promotes to verified.
+    if ! grep -qF 'changed_surface_exercised is ABSENT' "$sk"; then
+        fail "C11d: Step 3b in $sk does not state the fail-closed rule for absent changed_surface_exercised → partial. Missing guard allows absent field to resolve as verified."
+        c11_ok=0
+    fi
+
+    # (e) Step 3b must declare partial as a valid runtime_coverage value.
+    if ! grep -qF '→ partial' "$sk"; then
+        fail "C11e: Step 3b in $sk does not declare the 'partial' runtime_coverage branch — coverage enum is incomplete"
+        c11_ok=0
+    fi
+
+    # (f) The runtime_coverage field in the Step 8 envelope must include partial.
+    if ! grep -qF 'verified | partial | not-required | unverified' "$sk"; then
+        fail "C11f: Step 8 envelope in $sk does not declare 'partial' in the runtime_coverage enum — qa-report may return an undeclared state"
+        c11_ok=0
+    fi
+
+    [ "$c11_ok" -eq 1 ] && pass "C11 coverage-resolution-mapping: Step 3b ELSE→unverified, partial branch with fail-closed absent-field rule, envelope has runtime_coverage (4-value) + runtime_unverified_reason"
 }
 
 # C12 — Orchestrator file set derivation check.

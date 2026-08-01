@@ -572,6 +572,8 @@ Scalar fields (`fcp`, `ttfb`, `inp`) are returned directly as numbers (ms) or nu
 - **oracle_tier_breakdown**: { L1: {n}, L2: {n}, L3-schema: {n}, L3-inferred: {n}, L4: {n} }
 - **flow-evidence**: {path | topic_key | none}
 - **runtime-available**: true | false
+- **changed_surface_exercised**: yes | no | partial
+- **changed_surface_note**: {reason when not "yes" — required in that case; null when yes}
 ---
 ```
 
@@ -584,7 +586,22 @@ Return the report payload in your result envelope. The orchestrator persists it:
 
 Tier ceilings and the blocking matrix are owned by `skills/_shared/qase/oracle-contract.md`.
 
-Return structured envelope with: `status`, `executive_summary`, `report_markdown`, `artifacts`, `verdict_contribution`, `risks`.
+**Declare `changed_surface_exercised`** — MANDATORY. After completing all steps, determine whether
+the changed code surface was actually reached and exercised during this session. Set the field to:
+- `yes` — you can demonstrate (screenshot, network request, console output) that the changed
+  surface was loaded and executed in this session.
+- `no` — the changed surface was not reached. The most common cause: the feature sits behind
+  authentication or a user flow that was not executed. Be honest; `no` is not a failure — it is
+  information that prevents qa-report from overstating coverage.
+- `partial` — some changed components were reached but others were not (e.g., the page loaded
+  but a modal that contains the changed code was never opened).
+
+Do NOT attempt automatic source-file-to-URL mapping. You declare based on what you observed.
+When `changed_surface_exercised` is not `yes`, `changed_surface_note` MUST explain why (e.g.
+"Report scheduling modal requires authentication — /login tested only").
+
+Return structured envelope with: `status`, `executive_summary`, `report_markdown`, `artifacts`,
+`verdict_contribution`, `changed_surface_exercised`, `changed_surface_note`, `risks`.
 
 ## Depth Controls
 

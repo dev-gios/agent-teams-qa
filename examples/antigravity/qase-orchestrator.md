@@ -190,6 +190,7 @@ After qa-report completes, present to user:
 ## Review Complete: {verdict}{runtime_suffix}
 
 {runtime_suffix} resolution: read runtime_coverage from qa-report Step 3b result.
+If runtime_coverage == partial AND base_verdict is not REJECT: runtime_suffix = " (RUNTIME PARTIAL)".
 If runtime_coverage == unverified AND base_verdict is not REJECT: runtime_suffix = " (STATIC ONLY)".
 Otherwise: runtime_suffix = "" (empty string). Full definition: severity-contract.md -> ### Runtime Coverage Suffix.
 
@@ -202,7 +203,7 @@ Otherwise: runtime_suffix = "" (empty string). Full definition: severity-contrac
 - BLOCKERs: {N} (veto: {N from security/architect})
 - WARNINGs: {N}
 - INFOs: {N}
-**Runtime coverage**: {verified | not-required | unverified}
+**Runtime coverage**: {verified | partial | not-required | unverified}
 
 ### Top Findings
 {Top 3-5 most impactful findings}

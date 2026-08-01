@@ -57,5 +57,7 @@ Return a structured result with these fields:
 - `executive_summary`: one sentence — WARNING / INFO counts (no BLOCKERs)
 - `artifacts`: the report payload returned to the orchestrator (the orchestrator persists it)
 - `verdict_contribution`: `CLEAN` | `HAS_WARNINGS` | `UNVERIFIED` (emitted only when `launched_under_recommendation: true` and runtime is unavailable — carries zero findings; never HAS_BLOCKERS — see rule-ownership.md)
+- `changed_surface_exercised`: `yes` | `no` | `partial` — whether the changed visual surface was rendered in this session; declared by the specialist, not inferred. Required; ABSENT is treated as `no` by qa-report (fail-closed).
+- `changed_surface_note`: explanation when `changed_surface_exercised` is not `yes`; `null` when `yes`. Required in the non-`yes` case.
 - `risks`: design drift requiring follow-up
 - `skill_resolution`: `paths-injected` if exact skill paths were provided, otherwise `none`

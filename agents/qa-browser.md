@@ -58,5 +58,7 @@ Return a structured result with these fields:
 - `executive_summary`: one sentence — BLOCKER / WARNING / INFO counts or skip reason
 - `artifacts`: the report payload returned to the orchestrator (the orchestrator persists it)
 - `verdict_contribution`: `CLEAN` | `HAS_WARNINGS` | `HAS_BLOCKERS` | `UNVERIFIED` (emitted only when `launched_under_recommendation: true` and runtime is unavailable — carries zero findings)
+- `changed_surface_exercised`: `yes` | `no` | `partial` — whether the changed code surface was reached and executed in this session; declared by the specialist, not inferred. Required; ABSENT is treated as `no` by qa-report (fail-closed).
+- `changed_surface_note`: explanation when `changed_surface_exercised` is not `yes`; `null` when `yes`. Required in the non-`yes` case.
 - `risks`: unresolved BLOCKERs that will force a REJECT
 - `skill_resolution`: `paths-injected` if exact skill paths were provided, otherwise `none`

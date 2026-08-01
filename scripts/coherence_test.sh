@@ -221,7 +221,23 @@ output=$(bash --norc --noprofile -c "
 assert_fail_with_check "neg-step3b-else-verified: C11 fires when Step 3b ELSE resolves to verified" "$output" "$ec" "C11"
 
 # ============================================================
-# Fixture 9: neg-unpinned-orchestrator — expect exit 1, output must contain "C12"
+# Fixture 9: neg-absent-surface-exercised — expect exit 1, output must contain "C11"
+# Proves: Step 3b that lacks the fail-closed absent-changed_surface_exercised rule is caught.
+# ============================================================
+printf "\n${BOLD}Fixture: neg-absent-surface-exercised${NC}\n"
+output=$(bash --norc --noprofile -c "
+    PASS_COUNT=0; FAIL_COUNT=0; WARN_COUNT=0
+    pass() { echo \"PASS \$1\"; }
+    fail() { echo \"FAIL \$1\"; FAIL_COUNT=\$((FAIL_COUNT + 1)); }
+    warn() { echo \"WARN \$1\"; }
+    source '$LIB_DIR/coherence.sh'
+    check_c11_coverage_resolution_mapping '$FIXTURES_DIR/neg-absent-surface-exercised'
+    exit \$FAIL_COUNT
+" 2>&1) ; ec=$?
+assert_fail_with_check "neg-absent-surface-exercised: C11 fires when Step 3b lacks the absent-field fail-closed rule" "$output" "$ec" "C11"
+
+# ============================================================
+# Fixture 10 (was 9): neg-unpinned-orchestrator — expect exit 1, output must contain "C12"
 # Proves: an orchestrator added to qase.json but not to the required table is caught.
 # ============================================================
 printf "\n${BOLD}Fixture: neg-unpinned-orchestrator${NC}\n"

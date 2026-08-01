@@ -17,8 +17,16 @@ runtime_coverage =
         → runtime_unverified_reason = null
 
     ELSE IF every agent in runtime_recommendation.specialists returned
-             status: success AND verdict_contribution != UNVERIFIED:
+             status: success AND verdict_contribution != UNVERIFIED
+             AND changed_surface_exercised == "yes" for every specialist:
         → verified
+        → runtime_unverified_reason = null
+
+    ELSE IF every agent in runtime_recommendation.specialists returned
+             status: success AND verdict_contribution != UNVERIFIED
+             AND at least one specialist returned changed_surface_exercised IN {"no", "partial"}
+                 OR changed_surface_exercised is ABSENT for any specialist:
+        → partial
         → runtime_unverified_reason = null
 
     ELSE:
@@ -44,7 +52,7 @@ total_findings: {N}
 blockers: {N}
 warnings: {N}
 infos: {N}
-runtime_coverage: verified | not-required | unverified
+runtime_coverage: verified | partial | not-required | unverified
 runtime_unverified_reason: {enum value from persistence-contract.md or null}
 next_recommended: "{based on verdict}"
 risks:

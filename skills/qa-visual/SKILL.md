@@ -687,12 +687,25 @@ EXECUTE (all depth levels):
 │       ├── verdict-contribution: {CLEAN | HAS_WARNINGS}
 │       ├── oracle_tier_breakdown: { L1: 0, L2: 0, L3-schema: 0, L3-inferred: {n}, L4: {n} }
 │       ├── flow-evidence: —   (qa-visual does not produce flow evidence)
-│       └── runtime-available: {true | false}
+│       ├── runtime-available: {true | false}
+│       ├── changed_surface_exercised: yes | no | partial
+│       └── changed_surface_note: {reason when not "yes" — required in that case; null when yes}
 │
 └── Return report payload in your structured envelope. The orchestrator persists it:
     - **engram**: orchestrator calls `mem_save(topic_key: "qase/{review-id}/visual-report", content: {returned-report})`
     - **openspec**: orchestrator writes to `qaspec/reviews/{review-id}/visual.md`
     - **none**: report is returned inline
+
+**Declare `changed_surface_exercised`** — MANDATORY. After completing all steps, determine whether
+the changed code surface was actually rendered and visible during this session. Set the field to:
+- `yes` — you can demonstrate (screenshot) that the changed visual surface was rendered in this
+  session.
+- `no` — the changed surface was not reached. Common cause: the component is behind authentication
+  or a user flow not executed. Be honest; `no` is not a failure — it is information.
+- `partial` — some changed components were rendered but others were not.
+
+Do NOT attempt automatic source-file-to-URL mapping. Declare based on what was observed.
+When `changed_surface_exercised` is not `yes`, `changed_surface_note` MUST explain why.
 
 Return structured envelope:
 ```
@@ -708,6 +721,8 @@ Return structured envelope:
   // The L4 ceiling in severity-contract.md and the forbidden entry in rule-ownership.md
   // govern this carve-out. If a BLOCKER reaches this envelope, it is a tier-gate violation;
   // the verdict computation step above MUST have already downgraded it to WARNING.
+  changed_surface_exercised: "yes" | "no" | "partial",
+  changed_surface_note: "{reason when not 'yes' — required in that case; null when yes}",
   risks: [
     { description: "...", mitigation: "..." }
   ]
