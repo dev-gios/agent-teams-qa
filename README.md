@@ -124,7 +124,7 @@ After installing skills, add the orchestrator instructions from `examples/{your-
 | Command | What it does |
 |---------|-------------|
 | `/qa-init` | Detect stack, architecture DNA, quality tooling |
-| `/qa-review [scope]` | Full pipeline: scan → specialists → verdict |
+| `/qa-review [scope] [--url <url>]` | Full pipeline: scan → specialists → verdict (runtime specialists activate under recommendation) |
 | `/qa-scan [scope]` | Scan only: show routing manifest |
 | `/qa-architect [scope]` | Solo: SOLID analysis |
 | `/qa-advocate [scope]` | Solo: Resilience analysis |
@@ -147,6 +147,7 @@ After installing skills, add the orchestrator instructions from `examples/{your-
 | `--pr 42` | Pull request |
 | `--full` | Force all specialists |
 | `--deep` | Include INFO-level findings |
+| `--url <url>` | Base URL for runtime verification (used by qa-browser and qa-visual under recommendation) |
 
 ## Severity Levels
 
@@ -207,6 +208,20 @@ AI:  Detecting Engram... ✓ available, artifacts will be persisted.
 
      Fix 2 BLOCKERs and re-run /qa-review
 ```
+
+---
+
+## Runtime Routing
+
+Runtime specialists (`qa-browser`, `qa-visual`) do not activate automatically on every review. They follow a three-owner pipeline:
+
+1. **Recommend** — `qa-scan` inspects the diff's categories. When `ui`, `api`, or `auth` changes are detected, it emits a `runtime_recommendation` advisory block naming which runtime specialists to launch and why.
+2. **Decide** — the orchestrator checks whether `runtime_available == true` (from the `qa-init` preflight cache) and whether `--url <url>` was resolved (from the flag, stored context, or `qa-init` defaults). Only if both conditions are met does it launch the recommended specialists.
+3. **Account** — `qa-report` resolves `runtime_coverage` from the returned specialist results. When `runtime_coverage == unverified` and the base verdict is not REJECT, the orchestrator appends `" (STATIC ONLY)"` to the verdict header: `## Review Complete: {verdict} (STATIC ONLY)`. The `Unverified Coverage` section explains which categories were not runtime-verified and suggests the manual follow-up command. `runtime_coverage` is `unverified` whenever the recommended specialists did not run or refused — this covers cases where `runtime_available` was false, the URL was unresolved, the user declined, or no URL was found (not only when a specialist ran and refused).
+
+**The orchestrator never starts the application.** It reads the `detected_start_hints` from `qa-init` context for informational display only — it MUST NOT execute any start command.
+
+**Degradation**: if `agent-browser` is not installed or the URL is not reachable, the runtime specialists are not launched and `runtime_coverage` resolves to `unverified`. Static specialists always run regardless of runtime availability.
 
 ---
 

@@ -1,0 +1,7 @@
+{
+  "agent": {
+    "qase-orchestrator": {
+      "prompt": "QASE Orchestrator (positive fixture)\n\nStep 1: qa-scan\nStep 2: specialists\nStep 2b: Runtime verification\nStep 3: qa-report\n\n### Runtime URL Resolution (ADR-C)\n\nThe orchestrator never starts the application. MUST NOT run a detected start command.\nResolve --url from flag, project-context, or port probe.\n# `get url --json` returns success:true even after a failed navigation. Key off the exit code.\n## Review Complete: {verdict}{runtime_suffix}\n{runtime_suffix} resolution: read runtime_coverage from qa-report result.\n"
+    }
+  }
+}

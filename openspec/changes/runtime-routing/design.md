@@ -468,7 +468,7 @@ Six edits per document, 36 sites. Anchors differ per file — apply must not bli
 
 Naming traps recorded so apply does not "normalise" them into a diff: CLAUDE.md's section is `### Runtime Preflight Sequence (ADR-E')` while the other five say `### Runtime Preflight for qa-init (ADR-E')`; CLAUDE.md's rules list ends at 9, the others at 10; `cursor/.cursorrules`, `codex/agents.md` and `vscode` use ASCII `->` where CLAUDE.md uses `→`. E2's inserted prose must use each file's existing arrow convention or the C9 literals (which contain no arrows) are unaffected but the diff becomes noisy.
 
-`examples/opencode/opencode.json` is **not** an orchestrator document and is not touched. Six documents, not seven.
+**CORRECTION (post-verify remediation)**: `examples/opencode/opencode.json` IS an orchestrator document. `examples/opencode/qase.json` declares `"orchestrator": {"source": "opencode.json"}` and the file contains the full orchestrator prompt (`"You are the ORCHESTRATOR for QASE"`). It must receive the same E1–E6 edits as the other six. Seven documents, not six. The `required` table in `rule-ownership.md` pins all seven.
 
 ---
 

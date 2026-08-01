@@ -6,6 +6,12 @@
 | veto-ack | skills/_shared/qase/severity-contract.md | requires explicit user acknowledgment | skills/**,agents/** | — | 0 |
 <!-- /coherence:table -->
 
+<!-- coherence:table required -->
+| check_id | literal | files | min_count |
+|----------|---------|-------|-----------|
+| orch-no-auto-start | never starts the application | examples/claude-code/CLAUDE.md,examples/opencode/opencode.json | 1 |
+<!-- /coherence:table -->
+
 <!-- coherence:table forbidden -->
 | check_id | token | files | allow_regex | allow_count |
 |----------|-------|-------|-------------|-------------|
@@ -21,6 +27,8 @@
 | {count} | descriptive | — | — |
 | {pr-number} | descriptive | — | — |
 | {short-sha} | descriptive | — | — |
+| {verdict} | derived | skills/qa-report/SKILL.md | ## Step 6: Report Template |
+| {runtime_suffix} | derived | skills/_shared/qase/severity-contract.md | ### Runtime Coverage Suffix |
 <!-- /coherence:table -->
 
 <!-- coherence:table capabilities -->

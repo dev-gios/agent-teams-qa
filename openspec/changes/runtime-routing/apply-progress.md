@@ -1,109 +1,146 @@
-# Apply Progress: runtime-routing — PR 1 (Phases 1–2)
+# Apply Progress: runtime-routing — Final Remediation — COMPLETE
 
 **Change**: `runtime-routing`
-**PR scope**: PR 1 — Phases 1 and 2 only (tasks 1.1–2.9)
-**Mode**: Standard (no strict TDD applicable to markdown skill files)
-**Delivery**: stacked-to-main; branch `feat/GS-runtime-routing`
+**PR scope**: Final remediation of Y1-Y6 from final-confirmation-pass verify report
+**Branch**: `feat/GS-runtime-routing-orchestrator` (uncommitted — per user constraint)
+**Mode**: Standard (no strict TDD applicable to markdown/JSON/bash skill files)
+**Date**: 2026-08-01
 
 ---
 
-## Completed Tasks
+## Previous Batches
 
-### Phase 1: Infrastructure (Contracts and Ownership Registry)
+### PR 1 (Phases 1–2) — COMPLETE (committed in `a058d8f`)
+- [x] 1.1 through 2.9 — complete
 
-- [x] **1.1** Edit `skills/_shared/qase/routing-rules.md`: deleted `## Out-of-Band Specialists` section; added `## Runtime Recommendation` with trigger table (ui→browser+visual, api→browser, auth→browser, business→no, others→no), the `runtime_recommendation` manifest block (all 5 keys), and the no-auto-start literal `MUST NOT execute detected_start_hints[].command`. Verified: `rg -n 'Out-of-Band' skills/_shared/qase/routing-rules.md` → 0 matches.
+### PR 2 (Phases 3–6) — COMPLETE
+- [x] 3.1 through 6.3 — complete (27/27 tasks)
 
-- [x] **1.2** Edit `skills/_shared/qase/severity-contract.md`: added `UNVERIFIED` to `verdict_contribution` enum with full description; appended `### Runtime Coverage Suffix` section under Verdict Logic with `runtime_suffix()` pseudocode, `rendered_verdict` formula, and `(STATIC ONLY)` ownership note. Verified: `rg -c 'UNVERIFIED' skills/_shared/qase/severity-contract.md` = 2.
-
-- [x] **1.3** Edit `skills/_shared/qase/persistence-contract.md`: rewrote the refusal rule to make `verdict_contribution` launch-context-dependent (UNVERIFIED when `launched_under_recommendation: true`, CLEAN otherwise, R5 containment noted); appended `## Review-Scoped Runtime Coverage` section with 9-value `runtime_unverified_reason` enum. Preflight schema, truth table, and `unavailable_reason` enum untouched. Byte-identity verified: `diff /tmp/before_truth_table /tmp/after_truth_table` → empty.
-
-- [x] **1.4** Edit `skills/_shared/qase/rule-ownership.md`: added `<!-- coherence:table required -->` section with 4 rows (orch-no-auto-start, orch-url-flag, orch-url-precedence, orch-runtime-step, each pinned to all 6 orchestrator doc paths, min_count: 1); added `{runtime_suffix}` as `class: derived` (owner `severity-contract.md`, anchor `### Runtime Coverage Suffix`); added `{triggering-categories}` and `{runtime-reason}` as `class: descriptive`. (Note: `no-auto-start` and `static-only-qualifier` rows were pre-existing in the rules table from prior setup.)
-
-### Phase 2: Core Implementation (Skills and Agent Envelopes)
-
-- [x] **2.1** Edit `skills/qa-scan/SKILL.md`: added Step 4b "Produce Runtime Recommendation" between Step 4 and Step 5, with trigger evaluation logic, `runtime_recommendation` block template, and no-availability-assertion constraint; updated Step 7 envelope to include `runtime_recommendation` block. Verified: `rg -n 'runtime_recommendation' skills/qa-scan/SKILL.md` ≥ 1.
-
-- [x] **2.2** Edit `skills/qa-report/SKILL.md`: added Step 3b "Coverage Resolution" (between Step 3 and Step 4) with three-branch algorithm (not-required/verified/unverified); changed Step 6 verdict template line to `### Verdict: {verdict}{runtime_suffix}`; added `### Unverified Coverage` section template (emitted only when `runtime_coverage == unverified`); added `runtime_coverage` and `runtime_unverified_reason` metadata keys. Verified: template present with both tokens.
-
-- [x] **2.3** Edit `skills/qa-browser/SKILL.md`: all 3 refusal branches updated to emit `verdict_contribution: UNVERIFIED (if launched_under_recommendation: true) | CLEAN (otherwise)`. The 3 fabrication guards "Do NOT fabricate findings from static reading" preserved. Verified: `rg -c 'Do NOT fabricate findings from static reading' skills/qa-browser/SKILL.md` == 3; no bare `verdict_contribution: CLEAN` in refusal branches.
-
-- [x] **2.4** Edit `skills/qa-visual/SKILL.md`: same change as 2.3 — 3 refusal branches updated, CLEAN→UNVERIFIED under recommendation, 3 fabrication guards preserved. Verified: `rg -c 'Do NOT fabricate findings from static reading' skills/qa-visual/SKILL.md` == 3.
-
-- [x] **2.5** Edit `skills/qa-init/SKILL.md`: added optional `runtime.base_url` field description in Step 4; added `runtime` block YAML schema example; added `runtime.base_url` to Step 5 summary output in all three mode branches. `SUGGEST ONLY — never run these` remains byte-identical at its own line. Verified: `rg -n 'runtime.base_url' skills/qa-init/SKILL.md` ≥ 1.
-
-- [x] **2.6** Edit `agents/qa-scan.md`: added `runtime_recommendation` forwarded advisory block to result contract. Verified: `rg -n 'runtime_recommendation' agents/qa-scan.md` ≥ 1.
-
-- [x] **2.7** Edit `agents/qa-browser.md`: added `UNVERIFIED` to `verdict_contribution` result-contract enum. Verified: `rg -n 'UNVERIFIED' agents/qa-browser.md` ≥ 1.
-
-- [x] **2.8** Edit `agents/qa-visual.md`: added `UNVERIFIED` to `verdict_contribution` result-contract enum. Verified: `rg -n 'UNVERIFIED' agents/qa-visual.md` ≥ 1.
-
-- [x] **2.9** Edit `agents/qa-report.md`: added `runtime_coverage` (enum: verified/not-required/unverified) and `runtime_unverified_reason` to result contract. Verified: `rg -n 'runtime_coverage' agents/qa-report.md` ≥ 1.
+### Remediation Cycle 1 — COMPLETE
+- [x] X1–X8 all closed (8 CRITICALs, 4 WARNINGs)
+- Verified by Final Confirmation Pass: 6/8 CRITICALs confirmed; X4 (partial), X8 (mechanism) open
 
 ---
 
-## Files Changed
+## Final Remediation: Y1–Y6
 
-| File | Action | Description |
-|------|--------|-------------|
-| `skills/_shared/qase/routing-rules.md` | Modified | Replaced Out-of-Band section with Runtime Recommendation section, trigger table, manifest block, and no-auto-start literal |
-| `skills/_shared/qase/severity-contract.md` | Modified | Added UNVERIFIED to verdict_contribution enum; appended Runtime Coverage Suffix section |
-| `skills/_shared/qase/persistence-contract.md` | Modified | Rewrote refusal rule (launch-context-dependent); appended Review-Scoped Runtime Coverage section with 9-value enum |
-| `skills/_shared/qase/rule-ownership.md` | Modified | Added `required` table (4 rows); added `{runtime_suffix}` derived placeholder and 2 descriptive placeholders |
-| `skills/qa-scan/SKILL.md` | Modified | Added Step 4b (Runtime Recommendation); updated return envelope |
-| `skills/qa-report/SKILL.md` | Modified | Added Step 3b (Coverage Resolution); two-token verdict template; Unverified Coverage section; 2 metadata keys |
-| `skills/qa-browser/SKILL.md` | Modified | 3 refusal branches updated: UNVERIFIED under recommendation, CLEAN otherwise |
-| `skills/qa-visual/SKILL.md` | Modified | Same as qa-browser |
-| `skills/qa-init/SKILL.md` | Modified | Optional `runtime.base_url` in project context schema and Step 5 summaries |
-| `agents/qa-scan.md` | Modified | Added `runtime_recommendation` forwarded field to result contract |
-| `agents/qa-browser.md` | Modified | Added `UNVERIFIED` to verdict_contribution enum |
-| `agents/qa-visual.md` | Modified | Added `UNVERIFIED` to verdict_contribution enum |
-| `agents/qa-report.md` | Modified | Added `runtime_coverage` and `runtime_unverified_reason` to result contract |
+### Y1 — X4 CLOSED: Step 8 envelope now returns `runtime_coverage` + `runtime_unverified_reason`
+
+**Status**: FIXED
+
+Files changed:
+- `skills/qa-report/SKILL.md`: Added `runtime_coverage` and `runtime_unverified_reason` to Step 8 Return Report structured envelope
+- `skills/qa-report/SKILL.md`: Made Step 3b fail-closed: absent `runtime_recommendation` block → `unverified` (not `not-required`)
+- `skills/qa-report/SKILL.md`: Updated Rules section to mandate both fields in the envelope
+
+Verification: `awk 'NR>=293' skills/qa-report/SKILL.md | grep runtime` → finds `runtime_coverage:` and `runtime_unverified_reason:` in envelope
+
+### Y2 — X8 mechanism FIXED: C12 derives orchestrator set from `examples/*/qase.json`
+
+**Status**: FIXED
+
+Files changed:
+- `scripts/lib/coherence.sh`: Added `check_c12_orchestrator_set_parity()` — derives orchestrator file list from `qase.json orchestrator.source` fields and asserts the required table covers all of them. A new unpinned orchestrator fails C12.
+- `scripts/coherence_test.sh`: Added Fixture 9 `neg-unpinned-orchestrator` → C12 fires
+- `scripts/fixtures/coherence/neg-unpinned-orchestrator/`: New negative fixture with `new-tool` unpinned orchestrator
+- `scripts/fixtures/coherence/positive/examples/claude-code/qase.json`: New — provides orchestrator.source for C12
+- `scripts/fixtures/coherence/positive/examples/opencode/qase.json`: New — provides orchestrator.source for C12
+
+Mutation proof: delete `examples/opencode/opencode.json` from all required rows → `FAIL C12: orchestrator 'examples/opencode/opencode.json' ... NOT pinned`, exit 1 ✓
+
+### Y3 — Semantic core protected: C11 pins Step 3b ELSE → unverified
+
+**Status**: FIXED
+
+Files changed:
+- `scripts/lib/coherence.sh`: Added `check_c11_coverage_resolution_mapping()` — asserts Step 3b ELSE resolves to `unverified` (not `verified`), and Step 8 envelope declares both runtime fields
+- `scripts/coherence_test.sh`: Added Fixture 8 `neg-step3b-else-verified` → C11 fires
+- `scripts/fixtures/coherence/neg-step3b-else-verified/`: New negative fixture with ELSE flipped to `verified`
+- `scripts/fixtures/coherence/positive/skills/qa-report/SKILL.md`: Updated to include Step 3b and Step 8 blocks for C11 to pass on positive fixture
+
+Mutation proof: flip ELSE from `→ unverified` to `→ verified` in `skills/qa-report/SKILL.md` → `FAIL C11a: Step 3b ELSE branch does not resolve to unverified` (×2), exit 1 ✓
+
+### Y4 — `severity-contract.md:94` prose fixed to scope restriction correctly
+
+**Status**: FIXED
+
+Files changed:
+- `skills/_shared/qase/severity-contract.md`: Replaced "It MUST NOT be restated elsewhere" with scoped version: restricts to `skills/` and `agents/`, explicitly states orchestrator documents under `examples/` MUST restate it in the `{runtime_suffix}` resolution block
+
+### Y5 — `--url` added to opencode.json SCOPE SYNTAX + `/qa-review` command entry; pinned in C9
+
+**Status**: FIXED
+
+Files changed:
+- `examples/opencode/opencode.json`: Added `| --url <url>  | Base URL for runtime verification (modifier) |` row to SCOPE SYNTAX table
+- `examples/opencode/opencode.json`: Updated `/qa-review [scope]` → `/qa-review [scope] [--url <url>]` in QASE COMMANDS
+- `skills/_shared/qase/rule-ownership.md`: Added `orch-url-scope-syntax` row pinning `Base URL for runtime verification` in all 7 orchestrator docs (min_count: 1)
+
+Mutation proof: remove SCOPE SYNTAX `--url` row from opencode.json → `FAIL C9 orch-url-scope-syntax: required literal 'Base URL for runtime verification' missing`, exit 1 ✓
+
+### Y6 — `test_skills_only_install` real-source test (no longer a tautology)
+
+**Status**: FIXED
+
+Files changed:
+- `scripts/install_test.sh`: Rewrote `test_skills_only_install()` to install from real `$REPO_DIR/skills` instead of synthetic fixture. Now asserts: (a) same skill count as real source, (b) installed `qa-report/SKILL.md` contains `runtime_coverage`, (c) installed `qa-report/SKILL.md` contains `runtime_unverified_reason`. New assertion (c) would fail if someone removed `runtime_unverified_reason` from the real skill.
 
 ---
 
-## Verification Evidence
+## Verification Output
 
 ```
-bash scripts/lint_skills.sh   → PASS: 121, FAIL: 0
-bash scripts/install_test.sh  → PASS: 20, FAIL: 0
-bash scripts/coherence_test.sh → PASS: 4, FAIL: 0
+lint_skills.sh:   PASS 125/0  (was 123/0 — +C11, +C12)
+install_test.sh:  PASS 23/0   (was 22/0 — +runtime_unverified_reason assertion)
+coherence_test.sh: PASS 9/9   (was 7/7 — +C11 neg-step3b-else-verified, +C12 neg-unpinned-orchestrator)
 
-rg -c 'UNVERIFIED' agents/
-  agents/qa-visual.md:1
-  agents/qa-browser.md:1
-  agents/qa-scan.md:1
-  (exactly 3 intended agents — qa-report gets UNVERIFIED in Phase 4/C10e)
+Preflight truth table byte-identity vs a058d8f: BYTE-IDENTICAL (diff empty)
 
-Byte-identity proof (truth table):
-  diff /tmp/before_truth_table /tmp/after_truth_table → empty (PASS)
+Parity matrix (all 7 orchestrators):
+  --url (SCOPE table):      y/y/y/y/y/y/y
+  /qa-review --url entry:   y/y/y/y/y/y/y
+  STATIC ONLY:              y/y/y/y/y/y/y
+  {runtime_suffix}:         y/y/y/y/y/y/y
+  Step 2b:                  y/y/y/y/y/y/y
+  never starts app:         y/y/y/y/y/y/y
+```
 
-Coherence can-fail proof:
-  Removed qa-advocate from positive fixture → FAILED
-  Restored qa-advocate → PASSED
+### Failure proofs (new checks only):
 
-Orchestrator documents untouched:
-  git diff --name-only HEAD -- examples/ → (no output)
+**Y3 — C11 FAIL (flip ELSE→verified):**
+```
+FAIL C11a: Step 3b ELSE branch does not resolve to unverified in …/skills/qa-report/SKILL.md — flip protection failed
+FAIL C11a: Step 3b ELSE branch resolves to 'verified' — must be 'unverified'. This is the semantic core of runtime-routing
+exit 1
+```
+
+**Y2 — C12 FAIL (unpin opencode.json):**
+```
+FAIL C12: orchestrator 'examples/opencode/opencode.json' (from qase.json) is NOT pinned in the required table — add it to all required rows
+exit 1
+```
+
+**Y5 — C9 FAIL (strip SCOPE SYNTAX --url row from opencode.json):**
+```
+FAIL C9 orch-url-scope-syntax: required literal 'Base URL for runtime verification' missing from …/examples/opencode/opencode.json (found 0, need 1)
+exit 1
 ```
 
 ---
 
-## Remaining Tasks (PR 2)
+## Files Changed (Final Remediation)
 
-- [ ] **3.1–3.6** Phase 3: Integration (Orchestrator Documents) — E1–E6 edits to all 6 examples
-- [ ] **4.1–4.4** Phase 4: Tooling (C9/C10 coherence checks + fixtures)
-- [ ] **5.1–5.5** Phase 5: Testing and Verification
-- [ ] **6.1–6.3** Phase 6: Documentation and Registry
+- `skills/qa-report/SKILL.md` — Step 8 envelope + Step 3b fail-closed + Rules
+- `skills/_shared/qase/severity-contract.md` — Scoped the (STATIC ONLY) restriction prose
+- `skills/_shared/qase/rule-ownership.md` — Added `orch-url-scope-syntax` required row
+- `examples/opencode/opencode.json` — SCOPE SYNTAX `--url` row + `/qa-review --url` entry
+- `scripts/lib/coherence.sh` — C11 + C12 functions; C12 derives set from qase.json
+- `scripts/coherence_test.sh` — Fixtures 8 (neg-step3b-else-verified) + 9 (neg-unpinned-orchestrator)
+- `scripts/install_test.sh` — Real-source criterion-13 test + runtime_unverified_reason assertion
+- `scripts/fixtures/coherence/positive/skills/qa-report/SKILL.md` — Step 3b + Step 8 blocks
+- `scripts/fixtures/coherence/positive/examples/claude-code/qase.json` — New (C12 positive)
+- `scripts/fixtures/coherence/positive/examples/opencode/qase.json` — New (C12 positive)
+- `scripts/fixtures/coherence/neg-step3b-else-verified/` — New negative fixture for C11
+- `scripts/fixtures/coherence/neg-unpinned-orchestrator/` — New negative fixture for C12
 
----
-
-## Deviations from Design
-
-None — implementation matches design for Phases 1–2.
-
-## PR 1 Inertness
-
-PR 1 is genuinely inert: no orchestrator document (examples/) was modified. All 13 files changed are contracts (skills/_shared/qase/), skills (skills/qa-*/), or agent envelopes (agents/). The orchestrator reads none of these files directly — it reads the orchestrator documents in examples/. Until Phase 3 lands, no orchestrator behaviour changes.
-
-## Status
-
-13/27 tasks complete (tasks 1.1–2.9). Ready for verify on PR 1, then PR 2 implements Phases 3–6.
+## Status: COMPLETE — Y1–Y6 all resolved

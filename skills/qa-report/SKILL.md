@@ -23,6 +23,8 @@ From the orchestrator:
 - Review ID
 - All specialist reports (architect, security, advocate, inclusion, performance, test-strategy — whichever were activated)
 - Routing manifest from qa-scan (which specialists were activated, categories, risk level)
+- `runtime_recommendation` block from qa-scan (includes `recommended`, `specialists`, `triggering_categories`)
+- `runtime_unverified_reason` (enum value or null — forwarded by orchestrator when Step 2b short-circuited without launching specialists)
 - Detail level: `concise | standard | deep`
 - Artifact store mode (`engram | openspec | none`)
 
@@ -91,7 +93,11 @@ Placed between Step 3 (veto logic) and Step 4 (grouping). Runs before any verdic
 
 ```
 runtime_coverage =
-    IF runtime_recommendation.recommended != true:
+    IF runtime_recommendation block is absent or runtime_recommendation is null:
+        → unverified                    ← FAIL-CLOSED: absent input ≠ not-required
+        → runtime_unverified_reason = no-recommendation-forwarded
+
+    ELSE IF runtime_recommendation.recommended != true:
         → not-required
         → runtime_unverified_reason = null
 
@@ -239,7 +245,7 @@ Runtime verification was recommended for this review and did not run.
 
 | Triggering categories | Specialists that did not run | Reason |
 |---|---|---|
-| {triggering-categories} | qa-browser, qa-visual | {runtime-reason} |
+| {triggering-categories} | {runtime_recommendation.specialists joined by ", "} | {runtime-reason} |
 
 Static review found what static review can find. Nothing here was rendered,
 loaded, or executed. To close the gap:
@@ -311,6 +317,8 @@ blockers: {N}
 warnings: {N}
 infos: {N}
 hotspot_files: [{top 3 files with most findings}]
+runtime_coverage: verified | not-required | unverified
+runtime_unverified_reason: {enum value from persistence-contract.md or null}
 next_recommended: "{based on verdict}"
 risks:
   - {meta risks, e.g., "Large codebase with limited specialist coverage"}
@@ -326,4 +334,5 @@ risks:
 - "Senior Suggestion" code in merged findings should be the most complete version
 - If no specialists reported (all skipped), verdict is APPROVE with a note
 - If a specialist failed to produce a report, note it as a WARNING: "qa-{agent} did not complete"
-- Return a structured envelope with: `status`, `executive_summary`, `verdict`, `veto`, `artifacts`, `total_findings`, `next_recommended`, and `risks`
+- Return a structured envelope with: `status`, `executive_summary`, `verdict`, `veto`, `artifacts`, `total_findings`, `runtime_coverage`, `runtime_unverified_reason`, `next_recommended`, and `risks`
+- ALWAYS include `runtime_coverage` and `runtime_unverified_reason` in the Step 8 envelope — the orchestrator reads these fields to assemble the rendered verdict. Omitting them forces the orchestrator to guess, which is the defect this change exists to prevent

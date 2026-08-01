@@ -111,17 +111,17 @@ Each orchestrator document is edited independently; task-per-document makes a pa
 
 **TRAP**: Each file has different heading names, list lengths, and arrow conventions. CLAUDE.md uses `→`; cursor/.cursorrules, codex/agents.md, and vscode use `->`. CLAUDE.md section: `### Runtime Preflight Sequence (ADR-E')`; others: `### Runtime Preflight for qa-init (ADR-E')`. CLAUDE.md rules list ends at 9; others at 10. Do not homogenize.
 
-- [ ] **3.1** Edit `examples/claude-code/CLAUDE.md` (E1 Scope Syntax table row; E2 new `### Runtime URL Resolution (ADR-C)` section after ADR-F at line 177; E3 `Step 2b` in pipeline block at line 219; E4 two-token verdict heading + `**Runtime coverage**:` line at line 278; E5 Commands table `--url` + amend qa-browser row at line 52; E6 URL-scope note already present — verify it reads correctly).
+- [x] **3.1** Edit `examples/claude-code/CLAUDE.md` (E1 Scope Syntax table row; E2 new `### Runtime URL Resolution (ADR-C)` section after ADR-F at line 177; E3 `Step 2b` in pipeline block at line 219; E4 two-token verdict heading + `**Runtime coverage**:` line at line 278; E5 Commands table `--url` + amend qa-browser row at line 52; E6 URL-scope note already present — verify it reads correctly).
 
-- [ ] **3.2** Edit `examples/vscode/copilot-instructions.md` (E1 at line 79; E2 after ADR-F at line 262; E3 at line 107; E4 at line 176; E5 at line 67; E6 add URL-scope note, ASCII `->` convention).
+- [x] **3.2** Edit `examples/vscode/copilot-instructions.md` (E1 at line 79; E2 after ADR-F at line 262; E3 at line 107; E4 at line 176; E5 at line 67; E6 add URL-scope note, ASCII `->` convention).
 
-- [ ] **3.3** Edit `examples/cursor/.cursorrules` (E1 at line 69; E2 after ADR-F at line 248; E3 at line 97; E4 at line 164; E5 at line 57; E6 add URL-scope note, ASCII `->` convention).
+- [x] **3.3** Edit `examples/cursor/.cursorrules` (E1 at line 69; E2 after ADR-F at line 248; E3 at line 97; E4 at line 164; E5 at line 57; E6 add URL-scope note, ASCII `->` convention).
 
-- [ ] **3.4** Edit `examples/gemini-cli/GEMINI.md` (E1 at line 77; E2 after ADR-F at line 258; E3 at line 105; E4 at line 174; E5 at line 65; E6 add URL-scope note).
+- [x] **3.4** Edit `examples/gemini-cli/GEMINI.md` (E1 at line 77; E2 after ADR-F at line 258; E3 at line 105; E4 at line 174; E5 at line 65; E6 add URL-scope note).
 
-- [ ] **3.5** Edit `examples/codex/agents.md` (E1 at line 77; E2 after ADR-F at line 258; E3 at line 105; E4 at line 174; E5 at line 65; E6 add URL-scope note, ASCII `->` convention).
+- [x] **3.5** Edit `examples/codex/agents.md` (E1 at line 77; E2 after ADR-F at line 258; E3 at line 105; E4 at line 174; E5 at line 65; E6 add URL-scope note, ASCII `->` convention).
 
-- [ ] **3.6** Edit `examples/antigravity/qase-orchestrator.md` (E1 at line 77; E2 after ADR-F at line 251; E3 at line 100; E4 at line 167; E5 at line 65; E6 add URL-scope note).
+- [x] **3.6** Edit `examples/antigravity/qase-orchestrator.md` (E1 at line 77; E2 after ADR-F at line 251; E3 at line 100; E4 at line 167; E5 at line 65; E6 add URL-scope note).
 
 After 3.1–3.6: verify `rg -c 'Step 2b' examples/claude-code/CLAUDE.md examples/vscode/copilot-instructions.md examples/cursor/.cursorrules examples/gemini-cli/GEMINI.md examples/codex/agents.md examples/antigravity/qase-orchestrator.md` → all 6 show ≥ 1.
 
@@ -131,18 +131,18 @@ After 3.1–3.6: verify `rg -c 'Step 2b' examples/claude-code/CLAUDE.md examples
 
 Tasks 4.1 and 4.2 may proceed in parallel. Task 4.3 (fixtures) may also proceed in parallel. Task 4.4 (wiring) depends on 4.1 and 4.3.
 
-- [ ] **4.1** Edit `scripts/lib/coherence.sh`: add `check_c9_required_literal()` (mirrors C1's comma-split file loop with `grep -cF`; fails if `rows -eq 0` to prevent vacuous pass on reverted registry; reads the `required` table from `rule-ownership.md`); add `check_c10_unverified_not_clean()` with all 5 sub-assertions (a) equate-check, (b) refusal CLEAN, (c) 3 fabrication guards per runtime skill, (d) two-token template present + un-suffixed form absent, (e) R5 set containment = exactly {qa-browser, qa-report, qa-scan, qa-visual}); wire both into `run_coherence_checks()` after C8.
+- [x] **4.1** Edit `scripts/lib/coherence.sh`: add `check_c9_required_literal()` (mirrors C1's comma-split file loop with `grep -cF`; fails if `rows -eq 0` to prevent vacuous pass on reverted registry; reads the `required` table from `rule-ownership.md`); add `check_c10_unverified_not_clean()` with all 5 sub-assertions (a) equate-check, (b) refusal CLEAN, (c) 3 fabrication guards per runtime skill, (d) two-token template present + un-suffixed form absent, (e) R5 set containment = exactly {qa-browser, qa-report, qa-scan, qa-visual}); wire both into `run_coherence_checks()` after C8.
 
   **PROBE TRAP (from orchestrator)**: the reachability probe in Step 3 uses `agent-browser`, NOT `curl`. Key failure mode: `agent-browser --session "$S" open <url>` exits with code **1** on connection refused; however `agent-browser --session "$S" get url --json` returns `{"success":true,...}` even after a failed navigation. C9/C10 do NOT involve the probe directly, but any documentation or check that references probe behavior MUST key off the exit code of `open`, never off `success` in `get url --json`.
 
-- [ ] **4.2** Edit `scripts/install_test.sh`: add assertion for criterion 13 — a synthetic `qase.json` without `install_agents` block installs 12 skills, exits 0, and the installed `skills/qa-report/SKILL.md` contains the string `runtime_coverage`.
+- [x] **4.2** Edit `scripts/install_test.sh`: add assertion for criterion 13 — a synthetic `qase.json` without `install_agents` block installs 12 skills, exits 0, and the installed `skills/qa-report/SKILL.md` contains the string `runtime_coverage`.
 
-- [ ] **4.3** Create 3 negative fixture directories under `scripts/fixtures/coherence/`:
+- [x] **4.3** Create 3 negative fixture directories under `scripts/fixtures/coherence/`:
   - `neg-missing-required-literal/` — one orchestrator doc stub that lacks the `orch-no-auto-start` literal, plus minimal `rule-ownership.md` `required` table. Running `check_c9_required_literal` MUST exit 1 with output containing `C9`.
   - `neg-empty-required-table/` — `rule-ownership.md` with a `required` table header but zero data rows. Running `check_c9_required_literal` MUST exit 1 with output containing `C9` (the `rows -eq 0` branch).
   - `neg-unverified-as-clean/` — `skills/qa-browser/SKILL.md` with `verdict_contribution: CLEAN` in a recommendation-scoped refusal branch AND `skills/qa-report/SKILL.md` with template line `### Verdict: {verdict}` (one token only). Running `check_c10_unverified_not_clean` MUST exit 1 with output containing `C10`.
 
-- [ ] **4.4** Edit `scripts/coherence_test.sh`: add 3 new fixture assertions after the existing 4, following the `assert_fail_with_check` pattern already present: (a) `neg-missing-required-literal` expects exit 1 + `C9`; (b) `neg-empty-required-table` expects exit 1 + `C9`; (c) `neg-unverified-as-clean` expects exit 1 + `C10`.
+- [x] **4.4** Edit `scripts/coherence_test.sh`: add 3 new fixture assertions after the existing 4, following the `assert_fail_with_check` pattern already present: (a) `neg-missing-required-literal` expects exit 1 + `C9`; (b) `neg-empty-required-table` expects exit 1 + `C9`; (c) `neg-unverified-as-clean` expects exit 1 + `C10`.
 
 ---
 
@@ -150,15 +150,15 @@ Tasks 4.1 and 4.2 may proceed in parallel. Task 4.3 (fixtures) may also proceed 
 
 Tasks 5.1–5.4 may run in parallel. Task 5.5 (system gate) runs last.
 
-- [ ] **5.1** Verify criterion 1: `rg -n 'Out-of-Band' skills/_shared/qase/routing-rules.md` → 0 matches.
+- [x] **5.1** Verify criterion 1: `rg -n 'Out-of-Band' skills/_shared/qase/routing-rules.md` → 0 matches.
 
-- [ ] **5.2** Verify criterion 2: trigger table in `routing-rules.md` contains exactly `ui`, `api`, `auth` as recommending categories; `business` appears with an explicit non-recommendation.
+- [x] **5.2** Verify criterion 2: trigger table in `routing-rules.md` contains exactly `ui`, `api`, `auth` as recommending categories; `business` appears with an explicit non-recommendation.
 
-- [ ] **5.3** Verify criterion 9 (byte-identity): run the `git show … | awk … | diff` command from `design.md §B9`. The diff MUST be empty. If any line changed in the preflight truth table or `unavailable_reason` enum, stop and fix task 1.3.
+- [x] **5.3** Verify criterion 9 (byte-identity): run the `git show … | awk … | diff` command from `design.md §B9`. The diff MUST be empty. If any line changed in the preflight truth table or `unavailable_reason` enum, stop and fix task 1.3.
 
-- [ ] **5.4** Verify criteria 6 and 7: `rg -n 'verdict_contribution: CLEAN' skills/qa-browser/SKILL.md skills/qa-visual/SKILL.md` → 0 matches in recommendation-scoped branches; `rg -c 'Do NOT fabricate findings from static reading' skills/qa-browser/SKILL.md` == 3; same for `qa-visual/SKILL.md`.
+- [x] **5.4** Verify criteria 6 and 7: `rg -n 'verdict_contribution: CLEAN' skills/qa-browser/SKILL.md skills/qa-visual/SKILL.md` → 0 matches in recommendation-scoped branches; `rg -c 'Do NOT fabricate findings from static reading' skills/qa-browser/SKILL.md` == 3; same for `qa-visual/SKILL.md`.
 
-- [ ] **5.5** Run full gate: `bash scripts/lint_skills.sh && bash scripts/install_test.sh && bash scripts/coherence_test.sh` — all must exit 0. Any FAIL is a blocker.
+- [x] **5.5** Run full gate: `bash scripts/lint_skills.sh && bash scripts/install_test.sh && bash scripts/coherence_test.sh` — all must exit 0. Any FAIL is a blocker.
 
 ---
 
@@ -166,11 +166,11 @@ Tasks 5.1–5.4 may run in parallel. Task 5.5 (system gate) runs last.
 
 Tasks 6.1 and 6.2 may proceed in parallel. Task 6.3 is the final gate.
 
-- [ ] **6.1** Edit `README.md`: add `--url` flag to the `/qa-review` command description; add a brief "Runtime Routing" section explaining the three-owner pipeline (recommend / decide / account) and noting that runtime specialists activate under a recommendation, not automatically.
+- [x] **6.1** Edit `README.md`: add `--url` flag to the `/qa-review` command description; add a brief "Runtime Routing" section explaining the three-owner pipeline (recommend / decide / account) and noting that runtime specialists activate under a recommendation, not automatically.
 
-- [ ] **6.2** Regenerate `.atl/skill-registry.md`: update entries for `qa-scan`, `qa-report`, `qa-browser`, `qa-visual`, `qa-init` to reflect new capabilities; add note on the `--url` flag in the `/qa-review` command entry.
+- [x] **6.2** Regenerate `.atl/skill-registry.md`: update entries for `qa-scan`, `qa-report`, `qa-browser`, `qa-visual`, `qa-init` to reflect new capabilities; add note on the `--url` flag in the `/qa-review` command entry.
 
-- [ ] **6.3** Final linter + install-test gate (post-docs): `bash scripts/lint_skills.sh && bash scripts/install_test.sh && bash scripts/coherence_test.sh`. Both MUST exit 0 before the PR is marked ready.
+- [x] **6.3** Final linter + install-test gate (post-docs): `bash scripts/lint_skills.sh && bash scripts/install_test.sh && bash scripts/coherence_test.sh`. Both MUST exit 0 before the PR is marked ready.
 
 ---
 

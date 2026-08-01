@@ -310,6 +310,62 @@ test_appdata_resolution() {
 }
 
 # ============================================================================
+# 8. Skills-only install test (criterion 13)
+# Verifies that a qase.json without install_agents installs 12 skills from the
+# REAL skills/ directory, exits 0, and the installed qa-report/SKILL.md
+# contains runtime_coverage.
+#
+# Previous version wrote "runtime_coverage" into a synthetic fixture and then
+# asserted the copy contained it — a tautology that could never fail.
+# This version installs from the real $REPO_DIR/skills tree so the assertion
+# actually exercises the live qa-report/SKILL.md content.
+# ============================================================================
+test_skills_only_install() {
+    echo -e "\n${BOLD}Testing: Skills-only install (criterion 13)${NC}"
+
+    # Use the real skills directory from the repository.
+    local real_skills_src="$REPO_DIR/skills"
+
+    if [ ! -d "$real_skills_src" ]; then
+        test_fail "criterion-13: real skills/ directory not found at $real_skills_src"
+        return
+    fi
+
+    # Count the qa-* skill directories in the real source.
+    local real_skill_count
+    real_skill_count=$(find "$real_skills_src" -maxdepth 1 -type d -name 'qa-*' | wc -l)
+
+    # Install real skills to a temp destination.
+    local skills_dest="$TMP_DIR/skills_only_dest"
+    install_skills_to_path "$skills_dest" "SkillsOnlyTest" "$real_skills_src" > /dev/null
+
+    # Assert: same number of skill directories installed as exist in the real source.
+    local skill_count
+    skill_count=$(find "$skills_dest" -maxdepth 1 -type d -name 'qa-*' | wc -l)
+    if [ "$skill_count" -eq "$real_skill_count" ]; then
+        test_pass "criterion-13: skills-only install installed $skill_count qa-* skill directories (matches real source)"
+    else
+        test_fail "criterion-13: expected $real_skill_count skill dirs (real source), found $skill_count"
+    fi
+
+    # Assert: installed qa-report/SKILL.md is a copy of the real file and contains runtime_coverage.
+    # This assertion now fails if the real skills/qa-report/SKILL.md loses runtime_coverage.
+    local report_skill="$skills_dest/qa-report/SKILL.md"
+    if [ -f "$report_skill" ] && grep -qF 'runtime_coverage' "$report_skill"; then
+        test_pass "criterion-13: installed qa-report/SKILL.md (from real source) contains runtime_coverage"
+    else
+        test_fail "criterion-13: installed qa-report/SKILL.md does not contain runtime_coverage — check real skills/qa-report/SKILL.md"
+    fi
+
+    # Assert: installed qa-report/SKILL.md contains runtime_unverified_reason (Step 8 envelope).
+    if [ -f "$report_skill" ] && grep -qF 'runtime_unverified_reason' "$report_skill"; then
+        test_pass "criterion-13: installed qa-report/SKILL.md (from real source) contains runtime_unverified_reason"
+    else
+        test_fail "criterion-13: installed qa-report/SKILL.md does not contain runtime_unverified_reason — Step 8 envelope is incomplete"
+    fi
+}
+
+# ============================================================================
 # Main Test Runner
 # ============================================================================
 echo -e "${CYAN}${BOLD}=== QASE Modular Test Suite ===${NC}"
@@ -321,6 +377,7 @@ test_json_parser_errors
 test_agent_installer
 test_capability_boundary
 test_appdata_resolution
+test_skills_only_install
 
 # ============================================================================
 # Summary

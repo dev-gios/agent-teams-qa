@@ -1,0 +1,6 @@
+{
+  "id": "new-tool",
+  "orchestrator": {
+    "source": "new-tool.md"
+  }
+}

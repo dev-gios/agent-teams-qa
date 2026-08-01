@@ -1,0 +1,9 @@
+{
+  "id": "claude-code",
+  "name": "Claude Code",
+  "orchestrator": {
+    "source": "CLAUDE.md",
+    "target_label": "~/.claude/CLAUDE.md",
+    "auto_append": false
+  }
+}

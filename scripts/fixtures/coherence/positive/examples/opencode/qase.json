@@ -1,0 +1,9 @@
+{
+  "id": "opencode",
+  "name": "OpenCode",
+  "orchestrator": {
+    "source": "opencode.json",
+    "target_label": "~/.config/opencode/opencode.json",
+    "auto_append": false
+  }
+}

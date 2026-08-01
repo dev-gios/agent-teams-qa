@@ -158,6 +158,86 @@ output=$(bash --norc --noprofile -c "
 assert_fail_with_check "neg-missing-derivation: C3 fires on missing anchor" "$output" "$ec" "C3"
 
 # ============================================================
+# Fixture 5: neg-missing-required-literal — expect exit 1, output must contain "C9"
+# ============================================================
+printf "\n${BOLD}Fixture: neg-missing-required-literal${NC}\n"
+output=$(bash --norc --noprofile -c "
+    PASS_COUNT=0; FAIL_COUNT=0; WARN_COUNT=0
+    pass() { echo \"PASS \$1\"; }
+    fail() { echo \"FAIL \$1\"; FAIL_COUNT=\$((FAIL_COUNT + 1)); }
+    warn() { echo \"WARN \$1\"; }
+    source '$LIB_DIR/coherence.sh'
+    reg='$FIXTURES_DIR/neg-missing-required-literal/skills/_shared/qase/rule-ownership.md'
+    check_c9_required_literal \"\$reg\" '$FIXTURES_DIR/neg-missing-required-literal'
+    exit \$FAIL_COUNT
+" 2>&1) ; ec=$?
+assert_fail_with_check "neg-missing-required-literal: C9 fires when required literal missing from orchestrator doc" "$output" "$ec" "C9"
+
+# ============================================================
+# Fixture 6: neg-empty-required-table — expect exit 1, output must contain "C9"
+# ============================================================
+printf "\n${BOLD}Fixture: neg-empty-required-table${NC}\n"
+output=$(bash --norc --noprofile -c "
+    PASS_COUNT=0; FAIL_COUNT=0; WARN_COUNT=0
+    pass() { echo \"PASS \$1\"; }
+    fail() { echo \"FAIL \$1\"; FAIL_COUNT=\$((FAIL_COUNT + 1)); }
+    warn() { echo \"WARN \$1\"; }
+    source '$LIB_DIR/coherence.sh'
+    reg='$FIXTURES_DIR/neg-empty-required-table/skills/_shared/qase/rule-ownership.md'
+    check_c9_required_literal \"\$reg\" '$FIXTURES_DIR/neg-empty-required-table'
+    exit \$FAIL_COUNT
+" 2>&1) ; ec=$?
+assert_fail_with_check "neg-empty-required-table: C9 fires on vacuous empty required table" "$output" "$ec" "C9"
+
+# ============================================================
+# Fixture 7: neg-unverified-as-clean — expect exit 1, output must contain "C10"
+# ============================================================
+printf "\n${BOLD}Fixture: neg-unverified-as-clean${NC}\n"
+output=$(bash --norc --noprofile -c "
+    PASS_COUNT=0; FAIL_COUNT=0; WARN_COUNT=0
+    pass() { echo \"PASS \$1\"; }
+    fail() { echo \"FAIL \$1\"; FAIL_COUNT=\$((FAIL_COUNT + 1)); }
+    warn() { echo \"WARN \$1\"; }
+    source '$LIB_DIR/coherence.sh'
+    check_c10_unverified_not_clean '$FIXTURES_DIR/neg-unverified-as-clean'
+    exit \$FAIL_COUNT
+" 2>&1) ; ec=$?
+assert_fail_with_check "neg-unverified-as-clean: C10 fires on bare CLEAN refusal and one-token verdict template" "$output" "$ec" "C10"
+
+# ============================================================
+# Fixture 8: neg-step3b-else-verified — expect exit 1, output must contain "C11"
+# Proves: flipping Step 3b ELSE from "→ unverified" to "→ verified" is caught.
+# ============================================================
+printf "\n${BOLD}Fixture: neg-step3b-else-verified${NC}\n"
+output=$(bash --norc --noprofile -c "
+    PASS_COUNT=0; FAIL_COUNT=0; WARN_COUNT=0
+    pass() { echo \"PASS \$1\"; }
+    fail() { echo \"FAIL \$1\"; FAIL_COUNT=\$((FAIL_COUNT + 1)); }
+    warn() { echo \"WARN \$1\"; }
+    source '$LIB_DIR/coherence.sh'
+    check_c11_coverage_resolution_mapping '$FIXTURES_DIR/neg-step3b-else-verified'
+    exit \$FAIL_COUNT
+" 2>&1) ; ec=$?
+assert_fail_with_check "neg-step3b-else-verified: C11 fires when Step 3b ELSE resolves to verified" "$output" "$ec" "C11"
+
+# ============================================================
+# Fixture 9: neg-unpinned-orchestrator — expect exit 1, output must contain "C12"
+# Proves: an orchestrator added to qase.json but not to the required table is caught.
+# ============================================================
+printf "\n${BOLD}Fixture: neg-unpinned-orchestrator${NC}\n"
+output=$(bash --norc --noprofile -c "
+    PASS_COUNT=0; FAIL_COUNT=0; WARN_COUNT=0
+    pass() { echo \"PASS \$1\"; }
+    fail() { echo \"FAIL \$1\"; FAIL_COUNT=\$((FAIL_COUNT + 1)); }
+    warn() { echo \"WARN \$1\"; }
+    source '$LIB_DIR/coherence.sh'
+    reg='$FIXTURES_DIR/neg-unpinned-orchestrator/skills/_shared/qase/rule-ownership.md'
+    check_c12_orchestrator_set_parity \"\$reg\" '$FIXTURES_DIR/neg-unpinned-orchestrator'
+    exit \$FAIL_COUNT
+" 2>&1) ; ec=$?
+assert_fail_with_check "neg-unpinned-orchestrator: C12 fires when new orchestrator not in required table" "$output" "$ec" "C12"
+
+# ============================================================
 # Summary
 # ============================================================
 printf "\n${BOLD}=== Coherence Test Summary ===${NC}\n"

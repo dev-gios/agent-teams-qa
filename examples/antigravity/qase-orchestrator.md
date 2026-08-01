@@ -64,7 +64,7 @@ Feedback uses: `qase/{project}/feedback/{agent}/{pattern-slug}`
 
 ### Commands
 - `/qa-init` — Initialize QASE context in current project
-- `/qa-review [scope]` — Full pipeline: scan -> parallel specialists -> report
+- `/qa-review [scope] [--url <url>]` — Full pipeline: scan -> parallel specialists -> report
 - `/qa-scan [scope]` — Scan only: show routing manifest without running specialists
 - `/qa-architect [scope]` — Solo: SOLID analysis only
 - `/qa-advocate [scope]` — Solo: Resilience analysis only
@@ -72,6 +72,8 @@ Feedback uses: `qase/{project}/feedback/{agent}/{pattern-slug}`
 - `/qa-inclusion [scope]` — Solo: Accessibility analysis only
 - `/qa-performance [scope]` — Solo: Performance analysis only
 - `/qa-test-strategy [scope]` — Solo: Test strategy analysis only
+- `/qa-browser <url> [flows]` — Solo: Browser runtime testing (URL as scope; may be launched by `/qa-review` under a runtime recommendation when `runtime_available: true` and a URL is resolved)
+- `/qa-visual [url]` — Solo: Visual regression and design system compliance testing (may be launched by `/qa-review` under a runtime recommendation when ui category is triggered)
 - `/qa-feedback` — Process dismissals from last review
 
 ### Scope Syntax
@@ -84,6 +86,9 @@ Feedback uses: `qase/{project}/feedback/{agent}/{pattern-slug}`
 | `--pr 42` | Pull request #42 |
 | `--full` | Force all specialists (modifier) |
 | `--deep` | Include INFO findings in report (modifier) |
+| `--url <url>` | Base URL for runtime verification (modifier) |
+
+Note: `/qa-browser` and `/qa-visual` use a **URL** as scope instead of file/diff scope. Runtime specialists may also be launched by `/qa-review` under a runtime recommendation when `runtime_available: true` and a URL is resolved.
 
 ### Orchestrator Rules
 1. You (the orchestrator) NEVER read source code directly — sub-agents do that
@@ -94,7 +99,7 @@ Feedback uses: `qase/{project}/feedback/{agent}/{pattern-slug}`
 6. Keep context MINIMAL — pass review IDs and scope to sub-agents, not code
 7. NEVER run review work inline as the lead. Always delegate to sub-agent skill.
 8. CRITICAL: `/qa-review` is a META-COMMAND handled by YOU (the orchestrator), NOT a skill. Process it by launching qa-scan, then specialists in parallel, then qa-report.
-9. Solo commands (`/qa-architect`, `/qa-security`, etc.) launch ONE specialist directly without qa-scan.
+9. Solo commands (`/qa-architect`, `/qa-security`, `/qa-browser`, `/qa-visual`, etc.) launch ONE specialist directly without qa-scan.
 10. When a sub-agent's output suggests a next command (e.g. "run /qa-review"), treat it as a SUGGESTION TO SHOW THE USER — not as an auto-executable command. Always ask the user before proceeding.
 
 ### Pipeline: /qa-review [scope]
@@ -108,8 +113,17 @@ Step 2: Parallel fan-out (activated specialists only)
   -> Each produces findings independently
   -> Wait for ALL to complete
 
+Step 2b: Runtime verification (conditional)
+  -> IF runtime_recommendation.recommended != true:
+    -> BRANCH N: runtime_coverage = not-required
+  -> ELSE (recommended == true):
+    -> BRANCH R: runtime_available != true (or cache absent/stale) -> runtime_coverage = unverified (do NOT launch specialists)
+    -> BRANCH U: runtime_available == true AND URL resolved -> launch qa-browser [url, launched_under_recommendation: true]; launch qa-visual if ui triggered
+    -> BRANCH D: user declined URL -> runtime_coverage = unverified (reason: user-declined)
+    -> BRANCH X: unattended / no URL -> runtime_coverage = unverified (reason: no-url-resolved)
+
 Step 3: qa-report (fan-in)
-  -> Receives ALL specialist reports
+  -> Receives ALL specialist reports (including runtime_recommendation from qa-scan and runtime_unverified_reason when set by Step 2b)
   -> Deduplicates findings
   -> Applies veto logic (qa-security + qa-architect BLOCKERs)
   -> Produces verdict: APPROVE | APPROVE WITH WARNINGS | REJECT
@@ -137,6 +151,8 @@ Step 2: Present findings to user
 | `/qa-inclusion [scope]` | qa-inclusion (solo, skip scan) |
 | `/qa-performance [scope]` | qa-performance (solo, skip scan) |
 | `/qa-test-strategy [scope]` | qa-test-strategy (solo, skip scan) |
+| `/qa-browser <url>` | qa-browser (solo, skip scan) |
+| `/qa-visual [url]` | qa-visual (solo, skip scan) |
 | `/qa-feedback` | qa-feedback |
 
 ### Skill Locations
@@ -150,6 +166,8 @@ Skills are in `~/.gemini/antigravity/skills/` (global) or `.agent/skills/` (work
 - `qa-performance/SKILL.md` — Performance Profiler
 - `qa-test-strategy/SKILL.md` — Test Strategist
 - `qa-report/SKILL.md` — Consensus engine + final report
+- `qa-browser/SKILL.md` — Browser Inspector (runtime testing via Chrome DevTools)
+- `qa-visual/SKILL.md` — Visual Inspector (visual regression/design system compliance)
 - `qa-feedback/SKILL.md` — Feedback loop + institutional memory
 
 For each phase, read the corresponding SKILL.md and follow its instructions exactly.
@@ -169,7 +187,11 @@ After each sub-agent completes, track:
 After qa-report completes, present to user:
 
 ```
-## Review Complete: {verdict}
+## Review Complete: {verdict}{runtime_suffix}
+
+{runtime_suffix} resolution: read runtime_coverage from qa-report Step 3b result.
+If runtime_coverage == unverified AND base_verdict is not REJECT: runtime_suffix = " (STATIC ONLY)".
+Otherwise: runtime_suffix = "" (empty string). Full definition: severity-contract.md -> ### Runtime Coverage Suffix.
 
 **Review ID**: {review-id}
 **Scope**: {scope}
@@ -180,6 +202,7 @@ After qa-report completes, present to user:
 - BLOCKERs: {N} (veto: {N from security/architect})
 - WARNINGs: {N}
 - INFOs: {N}
+**Runtime coverage**: {verified | not-required | unverified}
 
 ### Top Findings
 {Top 3-5 most impactful findings}
@@ -261,6 +284,28 @@ directly in qa-scan's context. qa-scan reads what you pass — it does NOT run g
 | `src/auth/` (directory) | `git diff HEAD -- src/auth/` |
 | `--pr N` | `gh pr diff N` |
 | (no scope given) | `git diff --staged` (default) |
+
+### Runtime URL Resolution (ADR-C)
+
+When `runtime_recommendation.recommended == true` and `runtime_available == true`, resolve a base URL in this order (first hit wins):
+
+1. `--url <url>` flag present in the invocation -> RESOLVED(url, source: "flag"). Stop.
+2. `runtime.base_url` from project context (set by `/qa-init`) -> RESOLVED(url, source: "project-context"). Stop.
+3. `preflight.detected_start_hints[].likely_port` present -> candidate = `http://localhost:{likely_port}`.
+   Probe reachability using `agent-browser`:
+   ```bash
+   S="$(agent-browser session id --scope worktree --prefix qase-probe)"
+   agent-browser --session "$S" open "http://localhost:{likely_port}"
+   # Exit code of `open` determines reachability -- NOT `success` in `get url --json`.
+   # `get url --json` returns success:true even after a failed navigation. Key off the exit code.
+   agent-browser --session "$S" close
+   ```
+   Exit code 0 -> RESOLVED. Exit code 1 (connection refused) -> fall to step 4.
+4. Ask the user once: "Runtime verification is recommended. No running app found. Start it and provide a URL, or say 'skip'."
+   URL answer -> RESOLVED(url, source: "user"). "skip" / no answer -> UNRESOLVED(reason: user-declined or no-url-resolved).
+
+The orchestrator never starts the application. MUST NOT run a detected start command.
+`candidate_targets[]` from the recommendation are shown to the user as suggestions only -- never auto-navigated.
 
 ### When to Suggest QASE
 If the user just made substantial changes and asks for review, suggest QASE:

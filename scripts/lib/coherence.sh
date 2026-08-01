@@ -422,7 +422,242 @@ check_c8_no_self_write() {
     [ "$c8_ok" -eq 1 ] && pass "C8 no-self-write: zero qaspec/ writes and zero review-artifact mem_save calls in SKILL.md files"
 }
 
-# run_coherence_checks — orchestrates C1-C8 in order.
+# C9 — Required-literal-present check.
+# For each row in the `required` table, verifies the literal appears at least min_count times
+# in every listed file. Fails if the table is empty (vacuous-pass guard).
+# Usage: check_c9_required_literal <registry-file> [<corpus-root>]
+check_c9_required_literal() {
+    local reg="$1" root="${2:-.}" c9_ok=1 rows=0
+    while IFS=$'\t' read -r id literal files min_n; do
+        [ -z "$id" ] && continue
+        rows=$((rows + 1))
+        local flist_str="$files"
+        while [ -n "$flist_str" ]; do
+            local f="${flist_str%%,*}"
+            flist_str="${flist_str#"$f"}"; flist_str="${flist_str#,}"; f="${f// /}"
+            [ -z "$f" ] && continue
+            [[ "$f" != /* ]] && f="$root/$f"
+            if [ ! -f "$f" ]; then
+                fail "C9 $id: file not found: $f"; c9_ok=0; continue
+            fi
+            local n
+            n=$(grep -cF -- "$literal" "$f" 2>/dev/null || true)
+            if [ "$n" -lt "${min_n:-1}" ]; then
+                fail "C9 $id: required literal '$literal' missing from $f (found $n, need ${min_n:-1})"
+                c9_ok=0
+            fi
+        done
+    done < <(coh_table "$reg" required)
+
+    # A check that reads zero rows would pass vacuously — mirror C4's zero-hit branch.
+    if [ "$rows" -eq 0 ]; then
+        fail "C9: 'required' table is empty or absent — check would pass vacuously"
+        c9_ok=0
+    fi
+    [ "$c9_ok" -eq 1 ] && pass "C9 required-literal: all required literals present in all declared files"
+}
+
+# C10 — Unverified-not-clean check.
+# Asserts UNVERIFIED is distinct from CLEAN across five sub-criteria:
+# (a) no equate-on-one-line; (b) no bare CLEAN in refusal branches of runtime skills;
+# (c) exactly 3 fabrication guards per runtime skill; (d) two-token verdict template present
+# and un-suffixed form absent; (e) UNVERIFIED in exactly {qa-browser,qa-report,qa-scan,qa-visual}.
+# Usage: check_c10_unverified_not_clean [<corpus-root>]
+check_c10_unverified_not_clean() {
+    local root="${1:-.}" c10_ok=1
+    local sk="$root/skills" ag="$root/agents" ex="$root/examples"
+
+    # (a) No file may EQUATE the two tokens on one line.
+    # (a) No file may EQUATE the two tokens on one line.
+    # Scope: skills, agents, AND examples (examples/ is where the user actually reads the verdict).
+    # Pattern 1: equating operator between UNVERIFIED and CLEAN (no pipe allowed before operator).
+    # Pattern 2: pipe-separated equate — "UNVERIFIED | <operator> ... CLEAN" bypasses [^|]* in pattern 1.
+    # The legitimate idiom "UNVERIFIED (...) | CLEAN (otherwise)" has CLEAN immediately after | (no equating word).
+    local ex_args=()
+    [ -d "$ex" ] && ex_args=("$ex")
+    local eq eq2
+    eq=$(grep -rn 'UNVERIFIED' "$sk" "$ag" "${ex_args[@]}" 2>/dev/null \
+         | grep -E 'UNVERIFIED[^|]*(->|→|==?|treated as|maps? to|same as|equivalent to)[[:space:]`]*CLEAN' \
+         || true)
+    eq2=$(grep -rn 'UNVERIFIED' "$sk" "$ag" "${ex_args[@]}" 2>/dev/null \
+          | grep -E 'UNVERIFIED[^C]*\|[[:space:]]*(->|→|==?|treated as|maps? to|same as|equivalent to)[[:space:]`]*CLEAN' \
+          || true)
+    [ -z "$eq" ] || { fail "C10a: UNVERIFIED equated with CLEAN: $eq"; c10_ok=0; }
+    [ -z "$eq2" ] || { fail "C10a: UNVERIFIED equated with CLEAN via pipe-separated form: $eq2"; c10_ok=0; }
+
+    # (b) Refusal branches must not restate the old contribution (proposal criterion 6).
+    local old
+    old=$(grep -rn 'verdict_contribution: CLEAN' \
+            "$sk/qa-browser/SKILL.md" "$sk/qa-visual/SKILL.md" 2>/dev/null || true)
+    [ -z "$old" ] || { fail "C10b: refusal branch still returns CLEAN: $old"; c10_ok=0; }
+
+    # (c) The refusal branches must still forbid fabrication — 3 per runtime skill (criterion 7).
+    local f
+    for f in qa-browser qa-visual; do
+        local n
+        n=$(grep -cF 'Do NOT fabricate findings from static reading' "$sk/$f/SKILL.md" 2>/dev/null || true)
+        [ "$n" -eq 3 ] || { fail "C10c: $f has $n fabrication guards, expected 3"; c10_ok=0; }
+    done
+
+    # (d) The verdict template must carry BOTH tokens (M3).
+    local tmpl="$sk/qa-report/SKILL.md"
+    grep -qF -- '### Verdict: {verdict}{runtime_suffix}' "$tmpl" \
+        || { fail "C10d: qa-report verdict template lost {runtime_suffix}"; c10_ok=0; }
+    if grep -qE '^### Verdict: \{verdict\}[^{]*$' "$tmpl"; then
+        fail "C10d: qa-report contains an unsuffixed verdict template line"; c10_ok=0
+    fi
+
+    # (e) R5 containment: UNVERIFIED lives in exactly 4 agent files, no more.
+    # xargs -r (--no-run-if-empty) prevents "basename: missing operand" when agents/ dir is absent.
+    local got want
+    got=$(grep -rlF 'UNVERIFIED' "$ag" 2>/dev/null | xargs -r -n1 basename | sed 's/\.md$//' | sort || true)
+    want=$(printf 'qa-browser\nqa-report\nqa-scan\nqa-visual')
+    [ "$got" = "$want" ] || { fail "C10e: UNVERIFIED agent set is {$got}, expected {qa-browser,qa-report,qa-scan,qa-visual}"; c10_ok=0; }
+
+    [ "$c10_ok" -eq 1 ] && pass "C10 unverified-not-clean: UNVERIFIED is distinct, contained, and structurally rendered"
+}
+
+# C11 — Coverage-resolution mapping check.
+# Pins three semantic invariants in qa-report/SKILL.md that static presence checks cannot catch:
+# (a) Step 3b ELSE branch MUST resolve to `unverified`, never `verified` — the semantic core of
+#     the runtime-routing change. A one-word flip here silently allows bare APPROVE under recommendation.
+# (b) Step 8 return envelope MUST declare runtime_coverage as a returned field.
+# (c) Step 8 return envelope MUST declare runtime_unverified_reason as a returned field.
+# Usage: check_c11_coverage_resolution_mapping [<corpus-root>]
+check_c11_coverage_resolution_mapping() {
+    local root="${1:-.}" c11_ok=1
+    local sk="$root/skills/qa-report/SKILL.md"
+
+    if [ ! -f "$sk" ]; then
+        fail "C11: skills/qa-report/SKILL.md not found at $sk"
+        return
+    fi
+
+    # (a) Step 3b ELSE branch must resolve to unverified.
+    # The file must contain the exact string "→ unverified" after an "ELSE:" line, with no "→ verified"
+    # in the ELSE branch. We detect by checking the file contains the ELSE branch text with unverified
+    # and does NOT contain a pattern where ELSE directly precedes verified resolution.
+    # Positive check: "ELSE:" followed within 3 lines by "→ unverified"
+    if ! awk '
+        /^    ELSE:/ { in_else=1; count=0 }
+        in_else { count++ }
+        in_else && /→ unverified/ { found=1; exit }
+        in_else && count > 4 { in_else=0 }
+        END { exit !found }
+    ' "$sk"; then
+        fail "C11a: Step 3b ELSE branch does not resolve to unverified in $sk — flip protection failed"
+        c11_ok=0
+    fi
+
+    # Negative check: the ELSE branch must NOT resolve to verified.
+    # This fires if someone flips "→ unverified" to "→ verified" in the ELSE block.
+    if awk '
+        /^    ELSE:/ { in_else=1; count=0 }
+        in_else { count++ }
+        in_else && /→ verified/ { found=1; exit }
+        in_else && count > 4 { in_else=0 }
+        END { exit !found }
+    ' "$sk" 2>/dev/null; then
+        fail "C11a: Step 3b ELSE branch resolves to 'verified' — must be 'unverified'. This is the semantic core of runtime-routing"
+        c11_ok=0
+    fi
+
+    # (b) Step 8 envelope must declare runtime_coverage.
+    if ! grep -qF 'runtime_coverage:' "$sk"; then
+        fail "C11b: Step 8 envelope in $sk does not declare runtime_coverage — orchestrators cannot read what is not returned"
+        c11_ok=0
+    fi
+
+    # (c) Step 8 envelope must declare runtime_unverified_reason.
+    if ! grep -qF 'runtime_unverified_reason:' "$sk"; then
+        fail "C11c: Step 8 envelope in $sk does not declare runtime_unverified_reason — agents/qa-report.md promises this field"
+        c11_ok=0
+    fi
+
+    [ "$c11_ok" -eq 1 ] && pass "C11 coverage-resolution-mapping: Step 3b ELSE→unverified, envelope has runtime_coverage + runtime_unverified_reason"
+}
+
+# C12 — Orchestrator file set derivation check.
+# Derives the expected orchestrator file set from examples/*/qase.json orchestrator.source
+# and asserts the required table in rule-ownership.md covers exactly that set.
+# A newly-added orchestrator tool that is unpinned in the required table fails this check —
+# which is exactly how CRITICAL-1 (opencode.json) was silently missed the first time.
+# Usage: check_c12_orchestrator_set_parity <registry-file> [<corpus-root>]
+check_c12_orchestrator_set_parity() {
+    local reg="$1" root="${2:-.}" c12_ok=1
+
+    # Derive the expected set from qase.json orchestrator.source fields.
+    local derived_set=()
+    local ex_dir="$root/examples"
+    if [ ! -d "$ex_dir" ]; then
+        fail "C12: examples/ directory not found at $ex_dir"
+        return
+    fi
+
+    local qf
+    while IFS= read -r qf; do
+        local dir
+        dir="$(dirname "$qf")"
+        # Extract orchestrator.source via grep+sed (no jq dependency in the linter).
+        # The "|| true" prevents set -eo pipefail from aborting when grep finds no match.
+        local src
+        src=$(grep -o '"source":[[:space:]]*"[^"]*"' "$qf" 2>/dev/null \
+              | sed 's/.*"source":[[:space:]]*"//;s/"//' \
+              | head -1 || true)
+        [ -z "$src" ] && continue
+        local abs_path="$dir/$src"
+        # Normalise to relative path from root.
+        local rel_path="${abs_path#$root/}"
+        derived_set+=("$rel_path")
+    done < <(find "$ex_dir" -maxdepth 2 -name 'qase.json' | sort)
+
+    if [ "${#derived_set[@]}" -eq 0 ]; then
+        fail "C12: no qase.json files with orchestrator.source found under $ex_dir"
+        return
+    fi
+
+    # Build the pinned set from the required table (all unique file paths across all rows).
+    local pinned_set=()
+    while IFS=$'\t' read -r id literal files min_n; do
+        [ -z "$id" ] && continue
+        local flist_str="$files"
+        while [ -n "$flist_str" ]; do
+            local f="${flist_str%%,*}"
+            flist_str="${flist_str#"$f"}"; flist_str="${flist_str#,}"; f="${f// /}"
+            [ -z "$f" ] && continue
+            pinned_set+=("$f")
+        done
+    done < <(coh_table "$reg" required)
+
+    # Deduplicate and sort both sets.
+    # Use "${arr[@]+"${arr[@]}"}" to avoid set -u failure on empty arrays.
+    local derived_sorted pinned_sorted
+    derived_sorted=$(printf '%s\n' "${derived_set[@]+"${derived_set[@]}"}" | sort -u || true)
+    pinned_sorted=$(printf '%s\n' "${pinned_set[@]+"${pinned_set[@]}"}" | sort -u || true)
+
+    # Every derived orchestrator must appear in the pinned set.
+    local missing=0
+    while IFS= read -r dp; do
+        if ! echo "$pinned_sorted" | grep -qxF "$dp"; then
+            fail "C12: orchestrator '$dp' (from qase.json) is NOT pinned in the required table — add it to all required rows"
+            c12_ok=0
+            missing=$((missing + 1))
+        fi
+    done <<< "$derived_sorted"
+
+    # Every pinned path must exist as a file (catches stale rows).
+    while IFS= read -r pp; do
+        [[ "$pp" == /* ]] || pp="$root/$pp"
+        if [ ! -f "$pp" ]; then
+            fail "C12: required table pins '$pp' but the file does not exist — remove stale row or create the file"
+            c12_ok=0
+        fi
+    done <<< "$pinned_sorted"
+
+    [ "$c12_ok" -eq 1 ] && pass "C12 orchestrator-set-parity: derived set from qase.json equals pinned required table (${#derived_set[@]} orchestrators)"
+}
+
+# run_coherence_checks — orchestrates C1-C12 in order.
 # Usage: run_coherence_checks <corpus-root>
 run_coherence_checks() {
     local root="${1:-.}"
@@ -441,4 +676,8 @@ run_coherence_checks() {
     check_c6_agent_shape "$root"
     check_c7_capability "$root"
     check_c8_no_self_write "$root"
+    check_c9_required_literal "$reg" "$root"
+    check_c10_unverified_not_clean "$root"
+    check_c11_coverage_resolution_mapping "$root"
+    check_c12_orchestrator_set_parity "$reg" "$root"
 }

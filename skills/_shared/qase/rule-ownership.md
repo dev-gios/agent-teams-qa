@@ -59,10 +59,13 @@ positive fixture otherwise.
 <!-- coherence:table required -->
 | check_id | literal | files | min_count |
 |----------|---------|-------|-----------|
-| orch-no-auto-start | never starts the application | examples/claude-code/CLAUDE.md,examples/vscode/copilot-instructions.md,examples/cursor/.cursorrules,examples/gemini-cli/GEMINI.md,examples/codex/agents.md,examples/antigravity/qase-orchestrator.md | 1 |
-| orch-url-flag | --url | examples/claude-code/CLAUDE.md,examples/vscode/copilot-instructions.md,examples/cursor/.cursorrules,examples/gemini-cli/GEMINI.md,examples/codex/agents.md,examples/antigravity/qase-orchestrator.md | 1 |
-| orch-url-precedence | ### Runtime URL Resolution (ADR-C) | examples/claude-code/CLAUDE.md,examples/vscode/copilot-instructions.md,examples/cursor/.cursorrules,examples/gemini-cli/GEMINI.md,examples/codex/agents.md,examples/antigravity/qase-orchestrator.md | 1 |
-| orch-runtime-step | Step 2b | examples/claude-code/CLAUDE.md,examples/vscode/copilot-instructions.md,examples/cursor/.cursorrules,examples/gemini-cli/GEMINI.md,examples/codex/agents.md,examples/antigravity/qase-orchestrator.md | 1 |
+| orch-no-auto-start | never starts the application | examples/claude-code/CLAUDE.md,examples/vscode/copilot-instructions.md,examples/cursor/.cursorrules,examples/gemini-cli/GEMINI.md,examples/codex/agents.md,examples/antigravity/qase-orchestrator.md,examples/opencode/opencode.json | 1 |
+| orch-url-flag | --url | examples/claude-code/CLAUDE.md,examples/vscode/copilot-instructions.md,examples/cursor/.cursorrules,examples/gemini-cli/GEMINI.md,examples/codex/agents.md,examples/antigravity/qase-orchestrator.md,examples/opencode/opencode.json | 1 |
+| orch-url-scope-syntax | Base URL for runtime verification | examples/claude-code/CLAUDE.md,examples/vscode/copilot-instructions.md,examples/cursor/.cursorrules,examples/gemini-cli/GEMINI.md,examples/codex/agents.md,examples/antigravity/qase-orchestrator.md,examples/opencode/opencode.json | 1 |
+| orch-url-precedence | ### Runtime URL Resolution (ADR-C) | examples/claude-code/CLAUDE.md,examples/vscode/copilot-instructions.md,examples/cursor/.cursorrules,examples/gemini-cli/GEMINI.md,examples/codex/agents.md,examples/antigravity/qase-orchestrator.md,examples/opencode/opencode.json | 1 |
+| orch-runtime-step | Step 2b | examples/claude-code/CLAUDE.md,examples/vscode/copilot-instructions.md,examples/cursor/.cursorrules,examples/gemini-cli/GEMINI.md,examples/codex/agents.md,examples/antigravity/qase-orchestrator.md,examples/opencode/opencode.json | 1 |
+| orch-runtime-suffix | {runtime_suffix} | examples/claude-code/CLAUDE.md,examples/vscode/copilot-instructions.md,examples/cursor/.cursorrules,examples/gemini-cli/GEMINI.md,examples/codex/agents.md,examples/antigravity/qase-orchestrator.md,examples/opencode/opencode.json | 1 |
+| orch-probe-exit-code | Key off the exit code | examples/claude-code/CLAUDE.md,examples/vscode/copilot-instructions.md,examples/cursor/.cursorrules,examples/gemini-cli/GEMINI.md,examples/codex/agents.md,examples/antigravity/qase-orchestrator.md,examples/opencode/opencode.json | 1 |
 <!-- /coherence:table -->
 
 <!-- coherence:table forbidden -->

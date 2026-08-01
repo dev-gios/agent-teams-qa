@@ -91,7 +91,7 @@ runtime_suffix(runtime_coverage, base_verdict):
 rendered_verdict = base_verdict + runtime_suffix(runtime_coverage, base_verdict)
 ```
 
-The `(STATIC ONLY)` literal is owned exclusively by this file. It MUST NOT be restated elsewhere.
+The `(STATIC ONLY)` literal is owned exclusively by this file within `skills/` and `agents/` — those directories MUST NOT restate it (enforced by the `static-only-qualifier` rule in `rule-ownership.md`, scope: `skills/**,agents/**`). Orchestrator documents under `examples/` MUST restate it verbatim inside the `{runtime_suffix}` resolution block so a literal reader can resolve the token without cross-referencing this file.
 
 ## Severity Assignment Guidelines
 
