@@ -181,6 +181,63 @@ FIXTURE
 }
 
 # ============================================================================
+# 5. Agent Installer Tests
+# ============================================================================
+test_agent_installer() {
+    echo -e "\n${BOLD}Testing: Agent Installer${NC}"
+
+    # Test get_agents_path extraction
+    local test_json="$TMP_DIR/agents_test.json"
+    cat > "$test_json" <<'FIXTURE'
+{
+  "id": "claude-code",
+  "name": "Claude Code",
+  "install_agents": {
+    "linux": "$HOME/.claude/agents",
+    "macos": "$HOME/.claude/agents",
+    "wsl":   "$HOME/.claude/agents",
+    "windows": "$USERPROFILE/.claude/agents"
+  }
+}
+FIXTURE
+
+    # get_agents_path must extract linux path
+    local agents_path
+    agents_path=$(get_agents_path "$test_json" "linux")
+    [[ "$agents_path" == '$HOME/.claude/agents' ]] || test_fail "get_agents_path failed: got '$agents_path'"
+    test_pass "get_agents_path: extracted linux agents path"
+
+    # get_agents_path must return exit 1 when block is missing
+    local no_agents_json="$TMP_DIR/no_agents.json"
+    cat > "$no_agents_json" <<'FIXTURE'
+{
+  "id": "claude-code",
+  "install": { "linux": "$HOME/.claude/skills" }
+}
+FIXTURE
+    if agents_path=$(get_agents_path "$no_agents_json" "linux" 2>/dev/null); then
+        test_fail "get_agents_path should fail when install_agents block is absent"
+    else
+        test_pass "get_agents_path: returns exit 1 when install_agents block is absent"
+    fi
+
+    # install_agents_to_path must copy qa-*.md files to destination
+    local src_agents="$TMP_DIR/src_agents"
+    local dest_agents="$TMP_DIR/dest_agents"
+    mkdir -p "$src_agents"
+    echo "---" > "$src_agents/qa-test.md"
+    echo "---" > "$src_agents/qa-foo.md"
+    # a non-qa file that must NOT be copied
+    echo "other" > "$src_agents/other.md"
+
+    install_agents_to_path "$dest_agents" "TestTool" "$src_agents" > /dev/null
+    [[ -f "$dest_agents/qa-test.md" ]] || test_fail "qa-test.md not copied to agents destination"
+    [[ -f "$dest_agents/qa-foo.md"  ]] || test_fail "qa-foo.md not copied to agents destination"
+    [[ ! -f "$dest_agents/other.md" ]] || test_fail "other.md should NOT have been copied"
+    test_pass "install_agents_to_path: qa-*.md files copied, non-qa files skipped"
+}
+
+# ============================================================================
 # Main Test Runner
 # ============================================================================
 echo -e "${CYAN}${BOLD}=== QASE Modular Test Suite ===${NC}"
@@ -189,6 +246,7 @@ test_json_parser
 test_os_detect
 test_installer_core
 test_json_parser_errors
+test_agent_installer
 
 # ============================================================================
 # Summary

@@ -51,7 +51,7 @@ QASE doesn't impose architecture — it vets code for quality using the project'
 
 **Smart routing**: Not every change needs every specialist. CSS-only changes get Inclusion + Architect. Auth changes get the full squad. qa-scan decides.
 
-## The Squad (7 Static + 2 Runtime Specialists)
+## The Squad (10 Static + 2 Runtime Specialists)
 
 | Specialist | Role | Veto Power |
 |-----------|------|:----------:|
@@ -356,6 +356,52 @@ QASE uses a **fan-out/fan-in** pattern (unlike SDD's sequential DAG):
 - **qa-report** aggregates, deduplicates, applies veto logic, produces verdict
 
 This means reviews are fast — specialists don't wait for each other.
+
+### Three-Layer Architecture
+
+QASE separates concerns into four layers enforced by `scripts/lib/coherence.sh`:
+
+```
+L0: Orchestrator (sole writer)
+    └── writes all artifacts; specialists return payloads, never write directly
+
+L1: agents/qa-*.md  (capability boundary)
+    └── one file per specialist — declares tools, model, executor boundary
+    └── NO Write/Edit/MultiEdit tools; Bash only for qa-browser + qa-visual
+
+L2: skills/qa-*/SKILL.md  (procedure)
+    └── procedural instructions; returns report payload to caller
+    └── zero "Write to qaspec/" instructions — persistence is the orchestrator's job
+
+L3: skills/_shared/qase/*.md  (normative rules)
+    └── severity-contract.md, oracle-contract.md, issue-format.md — single sources of truth
+
+L4: scripts/lib/coherence.sh  (enforcement)
+    └── C1-C8 structural checks run on every `bash scripts/lint_skills.sh`
+```
+
+**The 12 specialists (bijection: 12 agents ↔ 12 skills):**
+
+| Agent | Class | Bash | Veto |
+|-------|-------|------|------|
+| qa-architect | static | No | Yes |
+| qa-security | static | No | Yes |
+| qa-advocate | static | No | No |
+| qa-inclusion | static | No | No |
+| qa-performance | static | No | No |
+| qa-test-strategy | static | No | No |
+| qa-browser | runtime | Yes | Tier-gated |
+| qa-visual | runtime | Yes | No |
+| qa-report | aggregator | No | — |
+| qa-init | static | No | — |
+| qa-scan | static | No | — |
+| qa-feedback | static | No | — |
+
+**ADR-B (Sole-Writer Persistence)**: Every specialist RETURNS its report payload. The orchestrator is the ONLY agent that writes to engram or openspec. Specialists have no Write/Edit tools in their `agents/` definition.
+
+**ADR-E' (Runtime Probing Relocated)**: Before launching qa-init, the orchestrator runs P0-P3 Bash probes (Bash availability, `agent-browser` presence, `agent-browser doctor`, smoke test) and passes all output to qa-init in its context block.
+
+**ADR-F (Scan Diff Resolution)**: The orchestrator resolves scope to a concrete diff via git/gh before launching qa-scan. qa-scan receives a pre-resolved diff and classifies only — it runs no git commands itself.
 
 ### SDD Bridge (Cross-System Integration)
 

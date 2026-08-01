@@ -28,7 +28,7 @@ From the orchestrator:
 Read and follow `skills/_shared/qase/persistence-contract.md` for mode resolution rules.
 
 - If mode is `engram`: Read and follow `skills/_shared/qase/engram-convention.md`. Use feedback path: `qase/{project}/feedback/{agent}/{pattern-slug}`.
-- If mode is `openspec`: Read and follow `skills/_shared/qase/openspec-convention.md`. Write to `qaspec/feedback/{agent}/{pattern-slug}.md`.
+- If mode is `openspec`: Read and follow `skills/_shared/qase/openspec-convention.md`. Return the pattern payload in your result envelope. The orchestrator writes it to `qaspec/feedback/{agent}/{pattern-slug}.md`.
 - If mode is `none`: Cannot persist feedback. Warn user and recommend enabling Engram.
 
 ## What to Do
@@ -125,9 +125,9 @@ This dismissal applies when:
 - {date}: Created from review {review-id}
 ```
 
-Persist according to mode:
-- **engram**: `mem_save(title: "qase/{project}/feedback/{agent}/{pattern-slug}", topic_key: "qase/{project}/feedback/{agent}/{pattern-slug}", ...)`
-- **openspec**: Write to `qaspec/feedback/{agent}/{pattern-slug}.md`
+Return the pattern payload in your result envelope. The orchestrator persists it:
+- **engram**: orchestrator calls `mem_save(topic_key: "qase/{project}/feedback/{agent}/{pattern-slug}", content: {returned-pattern})`
+- **openspec**: orchestrator writes to `qaspec/feedback/{agent}/{pattern-slug}.md`
 
 ### Step 7: Return Summary
 

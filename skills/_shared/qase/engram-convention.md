@@ -46,7 +46,7 @@ topic_key: qa-init/{project-name}/preflight
 type:      architecture
 ```
 
-Written by `qa-init` only. `qa-browser` and `qa-visual` read this artifact; they MUST NOT write it. See `persistence-contract.md` for the full schema and TTL/freshness rule.
+The orchestrator is the sole writer of the preflight cache key. `qa-init` produces the payload; the orchestrator calls `mem_save`. `qa-browser` and `qa-visual` read this artifact; they MUST NOT produce or write it. See `persistence-contract.md` for the full schema and TTL/freshness rule.
 
 ### Feedback (project-scoped, persistent)
 
@@ -60,22 +60,24 @@ scope:     project
 
 ### Artifact Types (exact strings)
 
-| Artifact Type | Produced By | Description |
-|---------------|-------------|-------------|
-| `scan` | qa-scan | Routing manifest + diff classification |
-| `architect-report` | qa-architect | SOLID analysis findings |
-| `advocate-report` | qa-advocate | Resilience analysis findings |
-| `security-report` | qa-security | Security analysis findings |
-| `inclusion-report` | qa-inclusion | Accessibility analysis findings |
-| `performance-report` | qa-performance | Performance analysis findings |
-| `test-strategy-report` | qa-test-strategy | Test strategy findings |
-| `browser-report` | qa-browser | Runtime browser testing findings |
-| `visual-report` | qa-visual | Visual regression and design system compliance findings |
-| `final-report` | qa-report | Consensus verdict |
-| `actionable-issues` | qa-report | Bridge artifact for SDD integration |
-| `feedback` | qa-feedback | Dismissal pattern (under feedback/ path) |
-| `flow-evidence` | qa-browser | Per-flow step-by-step executed evidence document (topic_key: `qase/{review-id}/flow-evidence/{flow-slug}`) |
-| `preflight-cache` | qa-init | Runtime backend capability cache (single writer: qa-init; 24 h TTL) |
+Capability class per agent is declared in `skills/_shared/qase/rule-ownership.md` (the `capabilities` table). Consult that file for the class of any agent.
+
+| Artifact Type | Produced By | Written By | Description |
+|---------------|-------------|------------|-------------|
+| `scan` | qa-scan | Orchestrator | Routing manifest + diff classification |
+| `architect-report` | qa-architect | Orchestrator | SOLID analysis findings |
+| `advocate-report` | qa-advocate | Orchestrator | Resilience analysis findings |
+| `security-report` | qa-security | Orchestrator | Security analysis findings |
+| `inclusion-report` | qa-inclusion | Orchestrator | Accessibility analysis findings |
+| `performance-report` | qa-performance | Orchestrator | Performance analysis findings |
+| `test-strategy-report` | qa-test-strategy | Orchestrator | Test strategy findings |
+| `browser-report` | qa-browser | Orchestrator | Runtime browser testing findings |
+| `visual-report` | qa-visual | Orchestrator | Visual regression and design system compliance findings |
+| `final-report` | qa-report | Orchestrator | Consensus verdict |
+| `actionable-issues` | qa-report | Orchestrator | Bridge artifact for SDD integration |
+| `feedback` | qa-feedback | Orchestrator | Dismissal pattern (under feedback/ path) |
+| `flow-evidence` | qa-browser | Orchestrator | Per-flow evidence (topic_key: `qase/{review-id}/flow-evidence/{flow-slug}`) |
+| `preflight-cache` | qa-init | Orchestrator | Runtime backend capability cache (24 h TTL) |
 
 > **Note**: Engram stores markdown only. Binary artifact PATHS are recorded with an `(ephemeral)` marker; binary artifact bytes are not stored. Screenshots, `.webm` recordings, and `.har` files are written to a run-scoped temp directory and referenced by absolute path. See `persistence-contract.md` for the binary artifact rule.
 

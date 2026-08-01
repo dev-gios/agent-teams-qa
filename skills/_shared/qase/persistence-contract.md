@@ -51,7 +51,7 @@ BEFORE launching any sub-agent:
 
 See also `skills/_shared/qase/oracle-contract.md` for the tier semantics that runtime specialists enforce after a successful preflight.
 
-**Single-writer rule**: `qa-init` is the ONLY writer of the preflight cache. `qa-browser` and `qa-visual` read it and MUST NOT write to it.
+**Single-producer rule**: `qa-init` is the sole **producer** of the preflight cache payload; the orchestrator is the sole **writer** of `qaspec/preflight-cache.yaml` (openspec mode) or the engram key `qa-init/{project}/preflight` (engram mode). `qa-browser` and `qa-visual` read the cache; they MUST NOT produce or write it.
 
 **TTL / freshness rule**: a cache entry whose `probed_at` is older than `ttl_hours` (default 24) is treated as absent. When treated as absent, the runtime specialist reports `runtime_available: unknown — preflight cache stale, re-run /qa-init` and refuses rather than guessing. A cached `false` never permanently disables runtime QA.
 
@@ -91,6 +91,23 @@ detected_cleanup_hook: null | { kind: "endpoint" | "command", value: "..." }
 
 `detection_mechanism` records how the runtime backend was probed: `"doctor"` when `agent-browser doctor --json` ran and was parseable, `"chrome-probe-fallback"` when the multi-name Chrome probe was used, or `"bash-unavailable"` when no Bash tool was present.
 
+### Preflight Outcome Truth Table
+
+`qa-init` uses this table to map the orchestrator's probe results to cache fields. Each row is
+an exclusive branch evaluated in order; stop at the first matching condition.
+
+| Condition | `bash_available` | `runtime_available` | `unavailable_reason` | `detection_mechanism` | `smoke_test` |
+|-----------|-----------------|--------------------|-----------------------|-----------------------|-------------|
+| P0 absent or fails (no Bash) | `false` | `false` | `"bash-unavailable"` | `"bash-unavailable"` | `"skipped"` |
+| P1 exit non-zero (no agent-browser) | `true` | `false` | `"agent-browser-not-installed"` | `null` | `"skipped"` |
+| P2 succeeds, `chrome.available: true` (doctor confirmed Chrome) | `true` | (depends on P3) | (depends on P3) | `"doctor"` | (depends on P3) |
+| P2 fails or `chrome.available: false`; P2b finds a binary | `true` | (depends on P3) | (depends on P3) | `"chrome-probe-fallback"` | (depends on P3) |
+| P2 fails or `chrome.available: false`; P2b finds no binary | `true` | `false` | `"no-chrome-binary"` | `"chrome-probe-fallback"` | `"skipped"` |
+| P3 exits non-zero (smoke test failed) | `true` | `false` | `"smoke-test-failed"` | (set by P2/P2b) | `"failed"` |
+| P3 exits 0 (runtime confirmed) | `true` | `true` | `null` | (set by P2/P2b) | `"passed"` |
+
+`unavailable_reason` enum values: `null`, `"bash-unavailable"`, `"agent-browser-not-installed"`, `"no-chrome-binary"`, `"smoke-test-failed"`.
+
 ### Engram Preflight Cache Key
 
 ```
@@ -98,6 +115,25 @@ title:     qa-init/{project-name}/preflight
 topic_key: qa-init/{project-name}/preflight
 type:      architecture
 ```
+
+## Sole Writer
+
+The orchestrator is the **only entity** that writes review artifacts to the filesystem or
+to Engram review keys. Specialists are **producers**: they return their report payload in
+their result envelope. The orchestrator is the **writer**: it persists the payload.
+
+This distinction applies across all artifact types:
+
+| Artifact | Producer | Writer |
+|----------|----------|--------|
+| Preflight cache (`qaspec/preflight-cache.yaml` / `qa-init/{project}/preflight`) | `qa-init` | Orchestrator |
+| Specialist reports (`qaspec/reviews/{review-id}/*.md` / `qase/{review-id}/*-report`) | Each specialist | Orchestrator |
+| Final report and actionable-issues | `qa-report` | Orchestrator |
+| Dismissal patterns | `qa-feedback` | Orchestrator |
+
+A specialist that uses its `Write` tool to persist a report has broken the sole-writer
+rule. The only write a specialist MAY perform is `mem_save` to its own engram review key —
+`mem_save` targets the memory store, not the audited repository (boundary B3).
 
 ## Common Rules
 

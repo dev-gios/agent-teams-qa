@@ -9,6 +9,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 SKILLS_SRC="$REPO_DIR/skills"
+AGENTS_SRC="$REPO_DIR/agents"
 LIB_DIR="$SCRIPT_DIR/lib"
 
 # Load Libraries
@@ -134,7 +135,16 @@ install_tool() {
     echo -e "\n${BLUE}Installing QASE skills for ${BOLD}$tool_name${NC}${BLUE}...${NC}"
     
     install_skills_to_path "$target_path" "$tool_name" "$SKILLS_SRC"
-    
+
+    # Handle Agent distribution (optional — only when install_agents block is present)
+    local raw_agents_target
+    raw_agents_target=$(get_agents_path "$json_path" "$OS") || true
+    if [[ -n "$raw_agents_target" && -d "$AGENTS_SRC" ]]; then
+        local agents_target_path
+        agents_target_path=$(resolve_path "$raw_agents_target")
+        install_agents_to_path "$agents_target_path" "$tool_name" "$AGENTS_SRC"
+    fi
+
     # Handle Orchestrator instructions (optional — some tools may not have one)
     local orch_source
     orch_source=$(get_orchestrator_val "$json_path" "source") || true

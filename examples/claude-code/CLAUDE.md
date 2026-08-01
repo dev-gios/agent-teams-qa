@@ -119,14 +119,83 @@ Note: `/qa-browser` and `/qa-visual` use a **URL** as scope (e.g., `https://loca
 8. CRITICAL: `/qa-review` is a META-COMMAND handled by YOU (the orchestrator), NOT a skill. Process it by launching qa-scan, then specialists in parallel, then qa-report.
 9. Solo commands (`/qa-architect`, `/qa-security`, `/qa-browser`, `/qa-visual`, etc.) launch ONE specialist directly without qa-scan.
 
+### Sole-Writer Rule (ADR-B)
+
+You are the ONLY writer of review artifacts. Specialists RETURN reports; you PERSIST them.
+
+After each specialist completes, persist its returned payload using the correct artifact type from the Engram Artifact Convention above (e.g. `scan`, `architect-report`, `final-report` — never `{specialist}-report` literally):
+- **openspec mode**: write the returned report to `qaspec/reviews/{review-id}/{specialist}.md` (bare name, e.g. `security.md` not `qa-security.md`)
+- **engram mode**: call `mem_save(topic_key: "qase/{review-id}/{artifact-type}", content: {returned-report})` using the correct artifact type per specialist
+
+After qa-report completes, also persist the actionable-issues bridge artifact if returned:
+- **engram mode**: call `mem_save(topic_key: "qase/{review-id}/actionable-issues", content: {returned-actionable-issues})`
+
+If write fails (permissions, missing dir): create the review dir and retry ONCE. On second failure, surface the report inline and record `artifacts: none`. Never discard a returned report silently.
+
+### Runtime Preflight Sequence (ADR-E')
+
+Before launching `qa-init`, run the full P0-P3 sequence below and pass ALL output and exit codes
+to `qa-init` in its context block. `qa-init` produces the preflight cache payload; you write the cache.
+
+```bash
+# P0 — Bash availability (must run first; if this fails, set bash_available: false and skip P1-P3)
+printf 'qase-bash-ok\n'
+
+# P1 — Presence probe (if absent: agent_browser.available: false, unavailable_reason: "agent-browser-not-installed", skip P2-P3)
+command -v agent-browser
+
+# P2 — Doctor probe (parse chrome field from JSON output)
+agent-browser doctor --json
+
+# P2b — Chrome fallback probe (run ONLY if doctor fails OR chrome.available is false in P2 output)
+# NEVER probe a single name only — false-negative risk on working environments.
+# Stop at the first hit; record the binary name.
+command -v chromium
+command -v google-chrome-stable
+command -v google-chrome
+command -v chrome
+
+# P3 — Smoke connection test
+S="$(agent-browser session id --scope worktree --prefix qase)"
+agent-browser --session "$S" open about:blank
+agent-browser --session "$S" get url --json   # URL is nested under the "data" key, not top-level
+agent-browser --session "$S" close
+```
+
+Branch table for qa-init payload derivation (map probe outcomes to cache fields):
+
+| Probe | Outcome | Field set |
+|-------|---------|-----------|
+| P0 absent / fails | Bash unavailable | `bash_available: false`, `runtime_available: false`, `unavailable_reason: "bash-unavailable"`, `detection_mechanism: "bash-unavailable"` |
+| P1 exit non-zero | agent-browser not installed | `agent_browser.available: false`, `runtime_available: false`, `unavailable_reason: "agent-browser-not-installed"` |
+| P2 succeeds + chrome.available: true | Doctor confirmed Chrome | `chrome_binary.available: true`, `chrome_binary.detection: "doctor"`, `detection_mechanism: "doctor"` |
+| P2 fails / chrome.available: false; P2b hits a binary | Chrome found via fallback | `chrome_binary.available: true`, `chrome_binary.name: {hit}`, `chrome_binary.detection: "probe-fallback"`, `detection_mechanism: "chrome-probe-fallback"` |
+| P2 fails / chrome.available: false; P2b no hit | No Chrome binary | `chrome_binary.available: false`, `runtime_available: false`, `unavailable_reason: "no-chrome-binary"` |
+| P3 exit non-zero | Smoke test failed | `smoke_test: failed`, `runtime_available: false`, `unavailable_reason: "smoke-test-failed"` |
+| P3 exits 0 | Runtime confirmed | `smoke_test: passed`, `runtime_available: true` |
+
+### Scope Resolution for qa-scan (ADR-F)
+
+Before launching `qa-scan`, resolve the user's scope argument to a diff and pass the diff content
+directly in qa-scan's context. `qa-scan` reads what you pass — it does NOT run git commands itself.
+
+| Scope argument | Command to run |
+|----------------|---------------|
+| `HEAD~N` | `git diff HEAD~N` |
+| `--staged` | `git diff --staged` |
+| `src/file.ts` (single file) | `git diff HEAD -- src/file.ts` (fallback: read file if no git history) |
+| `src/auth/` (directory) | `git diff HEAD -- src/auth/` |
+| `--pr N` | `gh pr diff N` |
+| (no scope given) | `git diff --staged` (default) |
+
 ### Sub-Agent Launching Pattern
 
-When launching a sub-agent via Task tool:
+When launching a sub-agent via Task tool, use the named agent when installed:
 
 ```
 Task(
   description: '{skill-name} for review {review-id}',
-  subagent_type: 'general-purpose',
+  subagent_type: 'qa-{skill}',  # use named agent if installed; fall back to 'general-purpose'
   prompt: 'You are a QASE sub-agent. Read the skill file at ~/.claude/skills/qa-{skill}/SKILL.md FIRST, then follow its instructions exactly.
 
   CONTEXT:

@@ -8,8 +8,14 @@ set -euo pipefail
 # ============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_DIR="$SCRIPT_DIR/lib"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 SKILLS_DIR="$PROJECT_DIR/skills"
+AGENTS_DIR="$PROJECT_DIR/agents"
+
+# Coherence library (C1-C8 structural checks)
+# shellcheck source=lib/coherence.sh
+source "$LIB_DIR/coherence.sh"
 
 # --- Colors ---
 RED='\033[0;31m'
@@ -90,6 +96,12 @@ for skill_file in "${SKILL_FILES[@]}"; do
         fail "Missing reference to persistence-contract.md"
     fi
 done
+
+# ============================================================
+# Structural Coherence Checks (C1-C8)
+# ============================================================
+printf "\n${BOLD}=== Structural Coherence Checks ===${NC}\n"
+run_coherence_checks "$PROJECT_DIR"
 
 # ============================================================
 # Summary

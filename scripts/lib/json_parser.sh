@@ -84,6 +84,31 @@ get_orchestrator_val() {
     echo "$result"
 }
 
+# Extracts a value from the 'install_agents' block based on OS.
+# Returns exit code 1 if file missing, key not found, or value empty.
+# Usage: get_agents_path "path/to/file.json" "linux"
+get_agents_path() {
+    local file="$1"
+    local os_key="$2"
+
+    if [ ! -f "$file" ]; then
+        return 1
+    fi
+
+    local result
+    result=$(sed -n '/"install_agents":/,/}/p' "$file" 2>/dev/null | \
+        grep "\"$os_key\":" | \
+        sed -E 's/.*: *"?([^",]+)"?,?/\1/' | \
+        xargs | \
+        sed 's/,$//') || true
+
+    if [[ -z "$result" ]]; then
+        return 1
+    fi
+
+    echo "$result"
+}
+
 # Validates and extracts a required top-level string value from a JSON file.
 # Prints error to stderr and returns exit code 1 if value is empty/missing.
 # Usage: require_json_val "path/to/file.json" "key" "human-readable label"

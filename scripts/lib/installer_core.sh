@@ -59,6 +59,34 @@ install_skills_to_path() {
     echo -e "  ${GREEN}✓${NC} ${BOLD}$count${NC} skills installed → $target_dir"
 }
 
+# Generic agent installer to a target path.
+# Copies all agents/qa-*.md files to the target directory.
+# Usage: install_agents_to_path "target_dir" "tool_name" "agents_src_dir"
+install_agents_to_path() {
+    local target_dir="$1"
+    local tool_name="$2"
+    local agents_src="$3"
+
+    # Atomic write permission check
+    mkdir -p "$target_dir" 2>/dev/null
+    if [ ! -w "$target_dir" ]; then
+        echo -e "  ${RED}✗${NC} Error: No write permission to ${BOLD}$target_dir${NC}"
+        return 1
+    fi
+
+    local count=0
+    for agent_file in "$agents_src"/qa-*.md; do
+        [ -f "$agent_file" ] || continue
+        local agent_name
+        agent_name=$(basename "$agent_file")
+        make_writable "$target_dir/$agent_name"
+        cp "$agent_file" "$target_dir/$agent_name"
+        count=$((count + 1))
+    done
+
+    echo -e "  ${GREEN}✓${NC} ${BOLD}$count${NC} agents installed → $target_dir"
+}
+
 # Resolve system paths (expand $HOME, $USERPROFILE)
 resolve_path() {
     local raw_path="$1"

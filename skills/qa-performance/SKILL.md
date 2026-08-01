@@ -34,7 +34,7 @@ Read and follow `skills/_shared/qase/severity-contract.md` for severity levels.
 Read and follow `skills/_shared/qase/issue-format.md` for finding format.
 
 - If mode is `engram`: Read and follow `skills/_shared/qase/engram-convention.md`. Artifact type: `performance-report`.
-- If mode is `openspec`: Read and follow `skills/_shared/qase/openspec-convention.md`. Write to `qaspec/reviews/{review-id}/performance.md`.
+- If mode is `openspec`: Read and follow `skills/_shared/qase/openspec-convention.md`. Return the report payload in your result envelope. The orchestrator writes it to `qaspec/reviews/{review-id}/performance.md`.
 - If mode is `none`: Return inline only.
 
 ## What to Do
@@ -236,9 +236,14 @@ CHECK (if API/backend code):
 ---
 ```
 
-### Step 8: Persist and Return
+### Step 8: Return Report
 
-Return structured envelope with: `status`, `executive_summary`, `artifacts`, `verdict_contribution`, `risks`.
+Return the report payload in your result envelope. The orchestrator persists it:
+- **engram**: orchestrator calls `mem_save(topic_key: "qase/{review-id}/performance-report", content: {returned-report})`
+- **openspec**: orchestrator writes to `qaspec/reviews/{review-id}/performance.md`
+- **none**: report is returned inline
+
+Return structured envelope with: `status`, `executive_summary`, `report_markdown`, `artifacts`, `verdict_contribution`, `risks`.
 
 ## Rules
 

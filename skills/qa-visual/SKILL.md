@@ -37,7 +37,7 @@ Read and follow `skills/_shared/qase/severity-contract.md` for severity levels.
 Read and follow `skills/_shared/qase/issue-format.md` for finding format (use the **Visual Testing Variant**).
 
 - If mode is `engram`: Read and follow `skills/_shared/qase/engram-convention.md`. Artifact type: `visual-report`.
-- If mode is `openspec`: Read and follow `skills/_shared/qase/openspec-convention.md`. Write to `qaspec/reviews/{review-id}/visual.md`.
+- If mode is `openspec`: Read and follow `skills/_shared/qase/openspec-convention.md`. Return the report payload in your result envelope. The orchestrator writes it to `qaspec/reviews/{review-id}/visual.md`.
 - If mode is `none`: Return inline only.
 
 ## What to Do
@@ -163,7 +163,7 @@ EXECUTE:
 │   │   (e.g., buttons with different font-sizes or border-radius values)
 │   └── WARNING for critical inconsistencies that break visual hierarchy
 │       (e.g., heading elements with wildly different sizes within the same level)
-│       (Oracle Tier L4 — BLOCKER is NOT permitted; WARNING is the ceiling regardless of severity)
+│       (Oracle Tier L4 — apply tier ceiling per `oracle-contract.md`)
 │
 └── Record: component_groups, style_map, design_findings
     Category: design-system
@@ -268,9 +268,9 @@ EXECUTE:
 │
 ├── SEVERITY:
 │   ├── WARNING for normal text below 4.5:1 contrast ratio
-│   │   (Oracle Tier L4 — BLOCKER is NOT permitted; WARNING is the L4 ceiling)
+│   │   (Oracle Tier L4 — apply tier ceiling per `oracle-contract.md`)
 │   ├── WARNING for large text below 3:1 contrast ratio
-│   │   (Oracle Tier L4 — BLOCKER is NOT permitted; WARNING is the L4 ceiling)
+│   │   (Oracle Tier L4 — apply tier ceiling per `oracle-contract.md`)
 │   ├── INFO for large text between 3:1 and 4.5:1 (suggest improvement)
 │   └── WARNING for color-only information conveyance
 │
@@ -365,7 +365,7 @@ EXECUTE (standard and deep only):
 │   │   │   ├── Heuristic: elements with role="navigation", <main>, <header>,
 │   │   │   │   elements matching common CTA patterns (a.btn, button[type="submit"])
 │   │   │   ├── SEVERITY: WARNING for navigation or main content unreachable
-│   │   │   │   (Oracle Tier L4 — BLOCKER is NOT permitted; WARNING is the L4 ceiling)
+│   │   │   │   (Oracle Tier L4 — apply tier ceiling per `oracle-contract.md`)
 │   │   │   │            WARNING if secondary elements hidden
 │   │   │   └── Evidence: element selector, display/visibility computed value
 │   │   ├── Text truncation:
@@ -425,7 +425,7 @@ EXECUTE (standard and deep only):
 │   ├── If collapsed: verify the toggle element exists in the DOM
 │   ├── SEVERITY: WARNING if navigation disappears entirely at any viewport
 │   │   (no nav element AND no hamburger/toggle)
-│   │   (Oracle Tier L4 — BLOCKER is NOT permitted; WARNING is the L4 ceiling)
+│   │   (Oracle Tier L4 — apply tier ceiling per `oracle-contract.md`)
 │   └── Evidence: viewport dimensions, nav element selector, toggle selector
 │
 ├── Content disappearance detection:
@@ -626,12 +626,7 @@ Format all filtered findings into the final report, persist to the configured ar
 
 ```
 EXECUTE (all depth levels):
-├── Compute verdict:
-│   │   (TIER-GATE ENFORCEMENT: qa-visual MUST NOT produce BLOCKERs. All findings are
-│   │    capped at WARNING by the L4 ceiling in severity-contract.md. If a BLOCKER somehow
-│   │    reaches this step, it is a tier-gate violation — downgrade it to WARNING, note it as
-│   │    "tier-gate-violation: BLOCKER downgraded to WARNING — qa-visual L4 cap applies",
-│   │    and proceed. Never propagate a BLOCKER in verdict_contribution.)
+├── Compute verdict (apply tier ceiling per `oracle-contract.md` and the forbidden entry in `rule-ownership.md`):
 │   ├── If any WARNING findings remain → verdict_contribution = "HAS_WARNINGS"
 │   └── Else → verdict_contribution = "CLEAN"
 │
@@ -644,9 +639,7 @@ EXECUTE (all depth levels):
 │   │   ├── Depth level: {concise | standard | deep}
 │   │   └── Philosophy: "If a user can see it, it should look right"
 │   │
-│   ├── Findings (grouped by severity):
-│   │   │   NOTE: qa-visual MUST NOT produce BLOCKERs (L4 ceiling — see severity-contract.md).
-│   │   │   A BLOCKERs section is intentionally absent from this template.
+│   ├── Findings (grouped by severity — BLOCKERs are absent per `severity-contract.md` and `rule-ownership.md`):
 │   │   ├── #### WARNINGs
 │   │   │   └── Each finding in Visual Testing Variant format
 │   │   └── #### INFOs (deep mode only — omit at concise and standard)
@@ -662,14 +655,9 @@ EXECUTE (all depth levels):
 │   │   ├── | Cross-Viewport Consistency | {CONSISTENT/DRIFTING/BROKEN} or SKIPPED (concise) | {count} |
 │   │   └── | Animations | {CLEAN/ISSUES/BROKEN} or SKIPPED (concise) | {count} |
 │   │
-│   │   Status thresholds (qa-visual produces no BLOCKERs — two states only):
-│   │   ├── First status word (e.g., CONSISTENT, CLEAN, COMPLIANT, SOLID):
-│   │   │   0 findings in that category
-│   │   └── Middle status word (e.g., DEVIATIONS, ISSUES, PARTIAL, DRIFTING):
-│   │       Any WARNINGs in that category
-│   │       (The third status word — INCONSISTENT, BROKEN, FAILING — is reserved for
-│   │        qa-report when a tier-gate-violation BLOCKER is detected; qa-visual never
-│   │        sets it directly.)
+│   │   Status thresholds (two states only — no BLOCKERs per `severity-contract.md`):
+│   │   ├── First word (CONSISTENT / CLEAN / COMPLIANT / SOLID): 0 findings
+│   │   └── Middle word (DEVIATIONS / ISSUES / PARTIAL / DRIFTING): any WARNINGs
 │   │
 │   ├── Color Palette Extracted table:
 │   │   ├── | Color | Hex | Usage Count | Role |
@@ -689,54 +677,38 @@ EXECUTE (all depth levels):
 │       ├── viewports-tested: {list of dimensions}
 │       ├── depth: {concise | standard | deep}
 │       ├── findings-count: {total after filtering}
-│       ├── blockers: 0  (qa-visual MUST NOT produce BLOCKERs; always 0)
+│       ├── blockers: 0  (per `severity-contract.md` and `rule-ownership.md`)
 │       ├── warnings: {count}
 │       ├── infos: {count}
 │       ├── suppressed: {count of dismissed findings}
-│       ├── verdict-contribution: {CLEAN | HAS_WARNINGS}  (never HAS_BLOCKERS)
+│       ├── verdict-contribution: {CLEAN | HAS_WARNINGS}
 │       ├── oracle_tier_breakdown: { L1: 0, L2: 0, L3-schema: 0, L3-inferred: {n}, L4: {n} }
 │       ├── flow-evidence: —   (qa-visual does not produce flow evidence)
 │       └── runtime-available: {true | false}
 │
-├── Persist report:
-│   ├── If artifact_store.mode == "engram":
-│   │   ├── mem_save(
-│   │   │     title: "qase/{review-id}/visual-report",
-│   │   │     topic_key: "qase/{review-id}/visual-report",
-│   │   │     type: "architecture",
-│   │   │     project: "{project-name}",
-│   │   │     scope: "project",
-│   │   │     content: {full markdown report}
-│   │   │   )
-│   │   ├── Record observation ID in artifacts
-│   │   └── If mem_save fails:
-│   │       ├── Return report inline
-│   │       ├── Set artifacts to empty list
-│   │       └── Add risk: "Engram persistence failed — report returned inline only"
-│   │
-│   ├── If artifact_store.mode == "openspec":
-│   │   ├── Write report to qaspec/reviews/{review-id}/visual.md
-│   │   └── Record file path in artifacts
-│   │
-│   └── If artifact_store.mode == "none":
-│       └── Return report inline only — do not create or modify any files
-│
-└── Return structured envelope:
-    {
-      status: "completed" | "partial" | "failed",
-      executive_summary: "One-paragraph summary of visual health",
-      artifacts: [
-        { type: "visual-report", location: "engram:{id}" | "openspec:{path}" | "inline" }
-      ],
-      verdict_contribution: "CLEAN" | "HAS_WARNINGS",
-      // HAS_BLOCKERS is intentionally absent — qa-visual MUST NOT produce BLOCKERs.
-      // The L4 ceiling (severity-contract.md) caps all qa-visual findings at WARNING.
-      // If a BLOCKER reaches this envelope, it is a tier-gate violation; the verdict
-      // computation step above MUST have already downgraded it to WARNING.
-      risks: [
-        { description: "...", mitigation: "..." }
-      ]
-    }
+└── Return report payload in your structured envelope. The orchestrator persists it:
+    - **engram**: orchestrator calls `mem_save(topic_key: "qase/{review-id}/visual-report", content: {returned-report})`
+    - **openspec**: orchestrator writes to `qaspec/reviews/{review-id}/visual.md`
+    - **none**: report is returned inline
+
+Return structured envelope:
+```
+{
+  status: "completed" | "partial" | "failed",
+  executive_summary: "One-paragraph summary of visual health",
+  report_markdown: {full markdown report},
+  artifacts: [
+    { type: "visual-report", location: "returned — orchestrator persists" }
+  ],
+  verdict_contribution: "CLEAN" | "HAS_WARNINGS",
+  // HAS_BLOCKERS is intentionally absent — qa-visual MUST NOT produce BLOCKERs.
+  // The L4 ceiling in severity-contract.md and the forbidden entry in rule-ownership.md
+  // govern this carve-out. If a BLOCKER reaches this envelope, it is a tier-gate violation;
+  // the verdict computation step above MUST have already downgraded it to WARNING.
+  risks: [
+    { description: "...", mitigation: "..." }
+  ]
+}
 ```
 
 ## Depth Controls
@@ -790,7 +762,7 @@ EXECUTE (all depth levels):
 - ALWAYS start by establishing connection and capturing visual baseline (Step 1) before any analysis
 - ALWAYS capture evidence (screenshots, computed style values, contrast calculations) for every finding
 - ALWAYS assign an Oracle Tier to every finding — qa-visual findings are predominantly L4; state the named WCAG SC or named standard as the Oracle Citation
-- All findings are subject to the L4 WARNING cap — qa-visual MUST NOT produce BLOCKERs
+- All findings are subject to the L4 WARNING cap — apply tier ceiling per `oracle-contract.md` and the forbidden entry in `rule-ownership.md`
 - Do NOT report issues caused by the testing environment itself (e.g., viewport resize artifacts)
 - Be practical — focus on visual issues that real users would notice and that affect usability or accessibility
 - "Senior Suggestion" MUST include actionable fixes (CSS code snippets, specific property values, or design system recommendations)

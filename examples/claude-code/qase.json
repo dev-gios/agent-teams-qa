@@ -8,6 +8,12 @@
     "wsl": "$HOME/.claude/skills",
     "windows": "$USERPROFILE/.claude/skills"
   },
+  "install_agents": {
+    "linux": "$HOME/.claude/agents",
+    "macos": "$HOME/.claude/agents",
+    "wsl": "$HOME/.claude/agents",
+    "windows": "$USERPROFILE/.claude/agents"
+  },
   "orchestrator": {
     "source": "CLAUDE.md",
     "target_label": "~/.claude/CLAUDE.md",

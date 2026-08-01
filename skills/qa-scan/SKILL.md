@@ -31,7 +31,7 @@ Read and follow `skills/_shared/qase/persistence-contract.md` for mode resolutio
 Read and follow `skills/_shared/qase/routing-rules.md` for category detection and routing matrix.
 
 - If mode is `engram`: Read and follow `skills/_shared/qase/engram-convention.md`. Artifact type: `scan`.
-- If mode is `openspec`: Read and follow `skills/_shared/qase/openspec-convention.md`. Save to `qaspec/reviews/{review-id}/scan.md`.
+- If mode is `openspec`: Read and follow `skills/_shared/qase/openspec-convention.md`. Return the manifest payload in your result envelope. The orchestrator writes it to `qaspec/reviews/{review-id}/scan.md`.
 - If mode is `none`: Return the routing manifest inline only. Never write files.
 
 ### Loading Context
@@ -50,19 +50,16 @@ Before routing, load any dismissed patterns from previous reviews:
 
 ## What to Do
 
-### Step 1: Resolve Scope to Diff
+### Step 1: Read Pre-Resolved Diff
 
-Convert the scope argument into actual file changes:
+Read the diff supplied in your context by the orchestrator. The orchestrator resolves scope → diff via `git diff` / `gh pr diff` before launching you. You classify and route only; you never shell out.
 
 ```
-Scope Resolution:
-├── HEAD~N           → git diff HEAD~N
-├── --staged         → git diff --staged
-├── file.ts          → git diff HEAD -- file.ts (or read file if no git history)
-├── src/auth/        → git diff HEAD -- src/auth/
-├── --pr N           → gh pr diff N
-├── (no scope)       → git diff --staged (default: staged changes)
-└── --full / --deep  → modifier flags, not scope (combine with above)
+FROM CONTEXT:
+├── diff content (supplied by orchestrator)
+├── scope label (HEAD~N, --staged, --pr N, or file path — for display in the manifest)
+├── flags: --full (activate all specialists), --deep (include INFO findings)
+└── If no diff is supplied: record confidence: reduced; classify by file-path patterns only.
 ```
 
 Capture for each changed file:
@@ -158,11 +155,12 @@ Generate the manifest in this format:
 | ... | ... | ... | ... |
 ```
 
-### Step 6: Persist (if applicable)
+### Step 6: Return Manifest
 
-- **engram**: Save scan artifact with topic_key `qase/{review-id}/scan`
-- **openspec**: Write to `qaspec/reviews/{review-id}/scan.md`
-- **none**: Return inline only
+Return the routing manifest in your result envelope. The orchestrator persists it:
+- **engram**: orchestrator calls `mem_save(topic_key: "qase/{review-id}/scan", content: {returned-manifest})`
+- **openspec**: orchestrator writes to `qaspec/reviews/{review-id}/scan.md`
+- **none**: manifest is returned inline
 
 ### Step 7: Return to Orchestrator
 

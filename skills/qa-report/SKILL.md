@@ -32,7 +32,7 @@ Read and follow `skills/_shared/qase/persistence-contract.md` for mode resolutio
 Read and follow `skills/_shared/qase/severity-contract.md` for verdict logic.
 
 - If mode is `engram`: Read and follow `skills/_shared/qase/engram-convention.md`. Artifact type: `final-report`.
-- If mode is `openspec`: Write to `qaspec/reviews/{review-id}/report.md`.
+- If mode is `openspec`: Read and follow `skills/_shared/qase/openspec-convention.md`. Return the report payload in your result envelope. The orchestrator writes it to `qaspec/reviews/{review-id}/report.md`.
 - If mode is `none`: Return inline only.
 
 ## What to Do
@@ -78,52 +78,7 @@ TIER-AWARE MERGE EXTENSION (for runtime findings carrying Oracle Tiers):
 
 ### Step 3: Apply Veto Logic
 
-From `skills/_shared/qase/severity-contract.md` and `skills/_shared/qase/oracle-contract.md`. Three agents have veto power; one of them (qa-browser) conditionally.
-
-```
-FOR EACH finding:
-  # Gate 1 — severity ceiling by Oracle Tier (defense in depth re-enforcement)
-  # Gate 1 applies ONLY to runtime specialists (qa-browser, qa-visual).
-  # Static specialists carry NO Oracle Tier; Gate 1 is a NO-OP for them —
-  # do NOT infer a tier, do NOT apply tier caps, do NOT treat their findings as UNGROUNDED.
-  IF finding.agent IN {qa-browser, qa-visual}:
-    IF finding.oracle_tier IS MISSING        → treat as UNGROUNDED, cap severity at INFO
-    IF finding.oracle_tier == L4             → cap severity at WARNING
-    IF finding.oracle_tier == L3-inferred    → cap severity at WARNING
-    IF finding.oracle_tier == L3-schema AND citation missing
-                                             → downgrade to L3-inferred, cap severity at WARNING
-    # A BLOCKER arriving at a capped tier is DOWNGRADED, not honoured.
-    # Record tier-gate-violation in the report notes.
-    #
-    # Citation correctness note (S3): Gate 1 checks that a citation IS PRESENT.
-    # It does not verify that the cited path:line contains the quoted literal.
-    # A fabricated-but-well-formed citation passes this gate and carries BLOCKER + veto power.
-    # Human reviewers SHOULD open cited path:line pairs and confirm the verbatim literal.
-    # Per oracle-contract.md §Anti-Inflation Rule 5: "Any reviewer may open the cited path:line
-    # and confirm the verbatim literal. If they cannot confirm it, the tier is invalid."
-
-  # Gate 2 — veto-bearing predicate (per finding, not per agent)
-  veto_bearing = finding.severity == BLOCKER AND (
-        finding.agent IN {qa-security, qa-architect}
-     OR (finding.agent == qa-browser AND finding.oracle_tier IN {L1, L2, L3-schema})
-  )
-
-VERDICT:
-  IF any BLOCKER exists:
-    → Base verdict: REJECT
-    IF any finding has veto_bearing == true:
-      → REJECT (VETO) — requires explicit user acknowledgment
-      → In the VETO report text: name the tier so the reader can see why the evidence was
-        authoritative: "qa-browser veto active — Oracle Tier {tier} — consensus override not permitted"
-    ELSE:
-      → REJECT — standard, can be overridden by consensus
-
-  ELSE IF any WARNING exists:
-    → APPROVE WITH WARNINGS
-
-  ELSE:
-    → APPROVE
-```
+Apply the two-gate verdict logic owned by `skills/_shared/qase/severity-contract.md` and `skills/_shared/qase/oracle-contract.md`. Read those files for the full Gate 1 (tier ceiling by Oracle Tier) and Gate 2 (veto-bearing predicate) algorithm before proceeding. Do not restate them here.
 
 ### Step 4: Group and Rank Findings
 
@@ -270,31 +225,37 @@ If mode is `engram` AND verdict is NOT `APPROVE` (clean), generate the **actiona
 IF verdict is REJECT or APPROVE WITH WARNINGS:
 ├── Collect all BLOCKERs and WARNINGs (after dedup)
 ├── For each finding, extract: severity, title, file, lines, agent, category, description, fix suggestion
-├── Generate the bridge artifact in the format from engram-convention.md
-├── Persist: mem_save(topic_key: "qase/{review-id}/actionable-issues", ...)
-└── Include the observation ID in the structured envelope
+└── Generate the bridge artifact in the format from engram-convention.md
+    Return it in the structured envelope (see Step 8).
+    The orchestrator then calls mem_save(topic_key: "qase/{review-id}/actionable-issues", ...)
 ```
 
 This artifact enables SDD (or other fix-automation systems) to discover QASE findings and create fix proposals. See `skills/_shared/qase/engram-convention.md` for the full format and SDD consumption pattern.
 
+**Do NOT call `mem_save` here.** `qase/{review-id}/actionable-issues` is a review-artifact key;
+`sole-writer-persistence/spec.md` and `engram-convention.md` assign it to the orchestrator. Return
+the payload inline; the orchestrator writes it.
+
 If mode is NOT `engram`, skip this step.
 
-### Step 8: Persist and Return
+### Step 8: Return Report
 
-- **engram**: Save with topic_key `qase/{review-id}/final-report`
-- **openspec**: Write to `qaspec/reviews/{review-id}/report.md`
-- **none**: Return inline only
+Return the report payload in your result envelope. The orchestrator persists it:
+- **engram**: orchestrator calls `mem_save(topic_key: "qase/{review-id}/final-report", content: {returned-report})`
+- **openspec**: orchestrator writes to `qaspec/reviews/{review-id}/report.md`
+- **none**: report is returned inline
 
 Return structured envelope:
 ```
 status: success
 executive_summary: "{verdict}: {N} findings ({B} blockers, {W} warnings)"
+report_markdown: {full report content}
 verdict: APPROVE | APPROVE_WITH_WARNINGS | REJECT
 veto: true | false
 veto_agents: [{list}]
 artifacts:
-  final-report: {engram-id or file path}
-  actionable-issues: {engram-id or null if APPROVE clean}
+  final-report: {returned inline — orchestrator persists}
+  actionable-issues: {returned inline or null if APPROVE clean}
 total_findings: {N}
 blockers: {N}
 warnings: {N}

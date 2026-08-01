@@ -40,7 +40,7 @@ Read and follow `skills/_shared/qase/issue-format.md` for finding format (use th
 Read and follow `skills/_shared/qase/oracle-contract.md` for Oracle Tier semantics — every finding MUST carry an Oracle Tier resolved per the algorithm in that file.
 
 - If mode is `engram`: Read and follow `skills/_shared/qase/engram-convention.md`. Artifact type: `browser-report`. Flow evidence artifact type: `flow-evidence` (topic_key: `qase/{review-id}/flow-evidence/{flow-slug}`).
-- If mode is `openspec`: Read and follow `skills/_shared/qase/openspec-convention.md`. Write to `qaspec/reviews/{review-id}/browser.md`. Flow evidence at `qaspec/reviews/{review-id}/flow-evidence/{flow-slug}.md`.
+- If mode is `openspec`: Read and follow `skills/_shared/qase/openspec-convention.md`. Return the report payload in your result envelope. The orchestrator writes it to `qaspec/reviews/{review-id}/browser.md` and flow evidence to `qaspec/reviews/{review-id}/flow-evidence/{flow-slug}.md`.
 - If mode is `none`: Return inline only.
 
 ## What to Do
@@ -80,7 +80,7 @@ EXECUTE:
 ```
 
 If the page fails to load (timeout, DNS error, connection refused):
-- Report as **WARNING**: "Application unreachable at {url}" — Oracle Tier: L4; WARNING cap applies (L4 advisory — BLOCKER is NOT permitted at L4). Unless a spec explicitly covers availability (L1), this cannot exceed WARNING.
+- Report as **WARNING**: "Application unreachable at {url}" — Oracle Tier: L4; apply tier ceiling per `oracle-contract.md`.
 - STOP — no further steps are possible.
 
 ### Step 1b: Global Oracle Sourcing (ONCE — immediately after Step 1 preflight passes)
@@ -120,14 +120,8 @@ Check for JavaScript errors and framework warnings.
 CHECK:
 ├── agent-browser --session "$S" console --json
 │   → filter for errors and warnings (parse JSON output by type field)
-├── Oracle Tier: apply the resolution algorithm (oracle-contract.md L1→L2→L3-schema→L3-inferred→L4)
-│   using the pre-computed oracle set from Step 1b. DO NOT execute L2 again —
-│   reference l2_runner_output from Step 1b only.
-│   Default outcome: L4 (console errors are heuristic — no code contract governs their presence).
-│   L4 is correct only because L1–L3 are absent: verify each before settling on L4.
-│   A spec scenario explicitly covering this console error → L1 (cite path + verbatim scenario).
-├── SEVERITY: capped by the resolved tier (L4 advisory → WARNING max)
-│   Override to INFO if the error appears to be from a browser extension
+├── Oracle Tier: apply resolution algorithm from `oracle-contract.md` using pre-computed oracle set from Step 1b
+├── SEVERITY: capped by the resolved tier; override to INFO if the error is from a browser extension
 ├── Record: error message, source, resolved Oracle Tier, absence note per oracle-contract.md §6
 └── Absence note example: "L1 unavailable: no spec covers this error path;
     L2 unavailable: no test runner detected; L3-schema/L3-inferred: no contract for this error."
@@ -142,15 +136,7 @@ CHECK:
 ├── agent-browser --session "$S" network requests --json
 ├── For each request with status >= 400:
 │   agent-browser --session "$S" network request <requestId>
-├── Oracle Tier: apply the resolution algorithm (oracle-contract.md L1→L2→L3-schema→L3-inferred→L4)
-│   using the pre-computed oracle set from Step 1b. DO NOT execute L2 again —
-│   reference l2_runner_output from Step 1b only.
-│   Default outcome: L4 (HTTP semantics are always named via RFC 7231 / CORS spec).
-│   L4 is the default because no endpoint contract is under test — verify L1–L3 first:
-│     L1: does a spec scenario explicitly cover this endpoint path? If yes, cite and use L1.
-│     L2: check l2_runner_output from Step 1b for a test covering this endpoint. If yes, cite and use L2.
-│     L3-schema: is an OpenAPI/Zod/Prisma schema present for this route? If yes, cite and use L3-schema.
-│   Absent all of those, L4 via RFC 7231 is correct.
+├── Oracle Tier: apply resolution algorithm from `oracle-contract.md` using pre-computed oracle set from Step 1b
 ├── Check for: 5xx responses, 4xx, CORS errors, timeouts, slow requests (> 3s API), large payloads
 ├── SEVERITY: capped by the resolved tier (L4 advisory → WARNING max)
 └── Record: URL, method, status, timing, size, resolved Oracle Tier, named standard citation
@@ -201,14 +187,8 @@ EXECUTE:
 │     → Include finding: "Accessibility audit SKIPPED — axe-core unavailable:
 │       {reason}" at Oracle Tier L4, severity INFO
 │
-├── Oracle Tier: apply the resolution algorithm (oracle-contract.md L1→L2→L3-schema→L3-inferred→L4)
-│   using the pre-computed oracle set from Step 1b. DO NOT execute L2 again —
-│   reference l2_runner_output from Step 1b only.
-│   Default outcome: L4 (WCAG SC provides a named standard — the canonical citation source for a11y).
-│   WCAG violations fall to L4 because accessibility contracts are not expressed as code contracts.
-│   Exception: if a spec scenario explicitly covers an accessibility requirement → L1 or L2 may apply.
-├── Classify by impact: critical/serious → WARNING, moderate/minor → INFO
-│   BLOCKER is NOT permitted at L4 — cap at WARNING regardless of axe impact level
+├── Oracle Tier: apply resolution algorithm from `oracle-contract.md` using pre-computed oracle set from Step 1b
+├── Classify by impact: critical/serious → WARNING, moderate/minor → INFO (tier ceiling applies per oracle-contract.md)
 └── Record: violation rule, affected elements, resolved Oracle Tier, WCAG SC citation
    L4 citation example: "WCAG 2.1 SC 1.4.3 — Contrast (Minimum)"
 ```
@@ -231,15 +211,8 @@ EXECUTE:
 │   ├── agent-browser --session "$S" press "Enter"
 │   ├── agent-browser --session "$S" fill "<sel>" "<test-data>"
 │   └── agent-browser --session "$S" press "Enter"
-├── Oracle Tier: apply the resolution algorithm (oracle-contract.md L1→L2→L3-schema→L3-inferred→L4)
-│   using the pre-computed oracle set from Step 1b. DO NOT execute L2 again —
-│   reference l2_runner_output from Step 1b only.
-│   Default outcome: L4 (interactive element behaviour is governed by UX heuristics, not code contracts).
-│   L4 is correct when no spec/test/schema covers this interaction — always verify L1–L3 first:
-│     L1: a spec scenario for this button/form path → cite and use L1.
-│     L2: check l2_runner_output from Step 1b for a test covering this interaction. If yes, cite and use L2.
-│     L3-schema: a schema governing the form payload → cite and use L3-schema.
-├── SEVERITY: capped by the resolved tier (L4 advisory → WARNING max)
+├── Oracle Tier: apply resolution algorithm from `oracle-contract.md` using pre-computed oracle set from Step 1b
+├── SEVERITY: capped by the resolved tier
 └── Record: element selector, action, expected vs actual, resolved Oracle Tier, absence note
 ```
 
@@ -267,14 +240,8 @@ EXECUTE:
 │   ├── agent-browser --session "$S" wait --load networkidle
 │   └── agent-browser --session "$S" snapshot -i
 │       → verify content rendered (not blank / error page)
-├── Oracle Tier: apply the resolution algorithm (oracle-contract.md L1→L2→L3-schema→L3-inferred→L4)
-│   using the pre-computed oracle set from Step 1b. DO NOT execute L2 again —
-│   reference l2_runner_output from Step 1b only.
-│   Default outcome: L4 (navigation integrity is governed by HTTP semantics / Nielsen Heuristic #1).
-│   A spec scenario for a specific navigation path → L1.
-│   Absent L1–L3, cite: "Nielsen Heuristic #1 — Visibility of system status" or
-│   "RFC 7231 §6.5.4 — 404 Not Found" as appropriate.
-├── SEVERITY: capped by the resolved tier (L4 advisory → WARNING max)
+├── Oracle Tier: apply resolution algorithm from `oracle-contract.md` using pre-computed oracle set from Step 1b
+├── SEVERITY: capped by the resolved tier
 └── Record: source page, link href, destination status, resolved Oracle Tier, standard citation
 
 SAFETY: NEVER follow links to external domains. Only test same-origin navigation.
@@ -300,14 +267,8 @@ EXECUTE:
 │       })
 │       EOF
 │       (bare object expression — return is a syntax error in eval)
-├── Oracle Tier: apply the resolution algorithm (oracle-contract.md L1→L2→L3-schema→L3-inferred→L4)
-│   using the pre-computed oracle set from Step 1b. DO NOT execute L2 again —
-│   reference l2_runner_output from Step 1b only.
-│   Default outcome: L4 (responsive layout is governed by WCAG / CSS-level heuristics).
-│   A spec scenario covering a specific viewport behaviour → L1.
-│   Absent L1–L3, cite: "WCAG 2.1 SC 1.4.4 — Resize Text" or "WCAG 2.1 SC 1.4.10 — Reflow"
-│   as applicable. Overflow evidence alone (scrollWidth > viewportWidth) is heuristic → L4.
-├── SEVERITY: capped by the resolved tier (L4 advisory → WARNING max)
+├── Oracle Tier: apply resolution algorithm from `oracle-contract.md` using pre-computed oracle set from Step 1b
+├── SEVERITY: capped by the resolved tier
 └── Record: viewport size, issue description, affected elements, resolved Oracle Tier, standard citation
 
 Reset to desktop: agent-browser --session "$S" set viewport 1440 900
@@ -359,13 +320,8 @@ EXECUTE:
 │   (page already loaded)" and treated as UNGROUNDED (INFO, not a rating of "Good").
 │   NEVER report a null LCP fallback as "Good", "N/A (passing)", or any passing status.
 │
-├── Oracle Tier: apply the resolution algorithm (oracle-contract.md L1→L2→L3-schema→L3-inferred→L4)
-│   using the pre-computed oracle set from Step 1b. DO NOT execute L2 again —
-│   reference l2_runner_output from Step 1b only.
-│   Default outcome: L4 — CWV metrics are always grounded in the named Web Vitals standard.
-│   Performance expectations are not typically expressed as code contracts; L4 is the correct tier.
-│   Exception: a spec scenario with a specific LCP or CLS budget → L1 (cite path + verbatim budget).
-├── Classify against Web Vitals thresholds (L4 cap — WARNING max, never BLOCKER):
+├── Oracle Tier: apply resolution algorithm from `oracle-contract.md` using pre-computed oracle set from Step 1b
+├── Classify against Web Vitals thresholds (tier ceiling applies per oracle-contract.md):
 │   ├── LCP: Good < 2500ms (data.lcp.startTime), Needs Improvement < 4000ms, Poor >= 4000ms
 │   ├── CLS: Good < 0.1 (data.cls.score), Needs Improvement < 0.25, Poor >= 0.25
 │   └── FCP: Good < 1800ms (data.fcp), Needs Improvement < 3000ms, Poor >= 3000ms
@@ -530,7 +486,7 @@ agent-browser --session "$S" close
 **F5 — Flow Summary + Test Data Ledger + Persist**:
 - Produce the Flow Summary table per `issue-format.md` — Flow Evidence Format.
 - Produce the Test Data Ledger: every identity and record created; if read-only flow, record `—` (not omit). Note whether a cleanup hook was invoked and its result.
-- Persist: openspec → `qaspec/reviews/{review-id}/flow-evidence/{flow-slug}.md`; engram → `qase/{review-id}/flow-evidence/{flow-slug}`.
+- Return flow evidence in your result envelope. The orchestrator persists it: openspec → `qaspec/reviews/{review-id}/flow-evidence/{flow-slug}.md`; engram → `qase/{review-id}/flow-evidence/{flow-slug}`.
 
 **Write-flow and safety rules**:
 - Production write flows are refused and reported as SKIPPED with a reason — never silently omitted.
@@ -616,13 +572,16 @@ Scalar fields (`fcp`, `ttfb`, `inp`) are returned directly as numbers (ms) or nu
 ---
 ```
 
-#### Persist and Return
+#### Return Report
 
-- **engram**: Save with topic_key `qase/{review-id}/browser-report`
-- **openspec**: Write to `qaspec/reviews/{review-id}/browser.md`
-- **none**: Return inline only
+Return the report payload in your result envelope. The orchestrator persists it:
+- **engram**: orchestrator calls `mem_save(topic_key: "qase/{review-id}/browser-report", content: {returned-report})`
+- **openspec**: orchestrator writes to `qaspec/reviews/{review-id}/browser.md`
+- **none**: report is returned inline
 
-Return structured envelope with: `status`, `executive_summary`, `artifacts`, `verdict_contribution`, `risks`.
+Tier ceilings and the blocking matrix are owned by `skills/_shared/qase/oracle-contract.md`.
+
+Return structured envelope with: `status`, `executive_summary`, `report_markdown`, `artifacts`, `verdict_contribution`, `risks`.
 
 ## Depth Controls
 

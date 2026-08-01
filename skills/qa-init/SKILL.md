@@ -109,93 +109,16 @@ rules:
     - Apply veto logic for BLOCKER severity
 ```
 
-### Step 4: Runtime Preflight (Browser Backend)
+### Step 4: Produce Preflight Cache Payload
 
-This step runs as the LAST `qa-init` step before the return summary. It proves that a browser can actually be driven from this executor, caches the verdict, and records start-command hints for the user. Runtime specialists (`qa-browser`, `qa-visual`) read this cache; they do not probe the environment themselves.
+Read the probe results supplied in your context by the orchestrator. The orchestrator ran the P0-P3 sequence (bash availability, `command -v agent-browser`, `agent-browser doctor --json`, and the smoke connection test) before launching you. The preflight outcome truth table, cache schema, TTL, and refusal rule are owned by `skills/_shared/qase/persistence-contract.md` — read that file before producing the payload.
 
-**P0 — Bash availability check** (FIRST action in this step):
+Produce the preflight cache payload from the supplied probe results and return it. The orchestrator writes it:
+- `openspec` → orchestrator writes `qaspec/preflight-cache.yaml`
+- `engram` → orchestrator calls `mem_save(topic_key: "qa-init/{project}/preflight", type: architecture, content: {payload})`
+- `none` → payload is returned inline; cache is not persisted
 
-```bash
-printf 'qase-bash-ok\n'
-```
-
-- If the Bash tool is unavailable (the command cannot run): record `bash_available: false`, `runtime_available: false`, `unavailable_reason: "bash-unavailable"`, `detection_mechanism: "bash-unavailable"`. Surface note: "Runtime preflight skipped — no Bash tool available in this executor; agent-browser is CLI-only." Jump directly to P6 (persist). Do NOT attempt any agent-browser command.
-- If the command succeeds: record `bash_available: true`. Continue to P1.
-
-**P1 — Presence probe**:
-
-```bash
-command -v agent-browser
-```
-
-- Not found (exit non-zero): record `agent_browser.available: false`, `runtime_available: false`, `unavailable_reason: "agent-browser-not-installed"`. Surface install hint text (do NOT execute):
-  ```
-  npm i -g agent-browser && agent-browser install
-  # On Linux hosts: agent-browser install --with-deps may be required
-  ```
-  Jump to P6.
-- Found: record `agent_browser.available: true`, `agent_browser.detection: "command -v"`.
-  Version: `--version` is a verified global flag (`agent-browser --version` outputs `agent-browser 0.32.2`). Record the version string in `agent_browser.version`. If `--version` fails, fall back to reading the version from `doctor --json` output.
-
-**P2 — Doctor check** (primary diagnostic):
-
-```bash
-agent-browser doctor --json
-```
-
-- Exit 0: record `doctor.ran: true`, `doctor.exit_code: 0`, `detection_mechanism: "doctor"`. Proceed to P3.
-- Exit 1: record `doctor.ran: true`, `doctor.exit_code: 1`, `doctor.failed_checks: [...]` (names from JSON). Proceed to P3 (smoke test is the final authority — doctor exit 1 does not end the preflight).
-- Output unparseable: record `doctor.ran: true`, `doctor.exit_code: null`. Fall back to P2b.
-- Command not found or cannot be parsed: fall back to P2b.
-
-**P2b — Chrome binary fallback probe** (only when doctor output is unavailable or unparseable):
-
-```bash
-command -v chromium          # probe 1
-command -v google-chrome-stable  # probe 2
-command -v google-chrome    # probe 3
-command -v chrome           # probe 4
-```
-
-Stop at the first hit. Record `chrome_binary.name` and `detection_mechanism: "chrome-probe-fallback"`. NEVER probe a single name only — false-negative risk on working environments (R4). If none found: record `chrome_binary.available: false`, `unavailable_reason: "no-chrome-binary"`. Jump to P6.
-
-**P3 — Smoke connection test** (final authority):
-
-```bash
-S="$(agent-browser session id --scope worktree --prefix qase)"
-agent-browser --session "$S" open
-agent-browser --session "$S" get url --json
-agent-browser --session "$S" close
-```
-
-- All three commands succeed and the JSON from `get url --json` contains `data.url == "about:blank"` (actual output: `{"success":true,"data":{...,"url":"about:blank"},"error":null}` — the url is nested under `data`, not at the top level): record `smoke_test: passed`, `runtime_available: true`, `unavailable_reason: null`.
-- Any command fails: record `smoke_test: failed`, `runtime_available: false`, `unavailable_reason: "smoke-test-failed"`, `smoke_test_error: {stderr}`.
-  This is the installed-but-broken case the preflight exists to make loud.
-
-**P4 — App start-command hints** (SUGGEST only — NEVER EXECUTE):
-
-Read the following sources and extract commands that likely start the application:
-- `package.json` scripts: `dev`, `start`, `serve`
-- `Makefile` targets: `run`, `serve`, `dev`
-- `Procfile` web: line
-- `docker-compose.yml` service port mappings
-- `go.mod` / `main.go` port flag
-- `README` "Getting Started" section
-- `.env.example PORT=`
-
-For each discovered command, record `{ command, source, likely_port }` under `detected_start_hints[]`. If none found: `detected_start_hints: []` and note in the summary.
-
-**NEVER execute any detected command.** Starting the user's application is outside `qa-init`'s mandate — the same principle as refusing to truncate their database.
-
-**P5 — Cleanup-hook detection** (opportunistic):
-
-Look for a test-reset endpoint or script: `POST /test/reset`, `npm run test:reset`, or similar patterns in `package.json`, `Makefile`, or README. Record as `detected_cleanup_hook: { kind: "endpoint" | "command", value: "..." }` or `null`. QASE will not invent cleanup, run migrations, or truncate tables.
-
-**P6 — Persist cache**:
-
-- `openspec` → write `qaspec/preflight-cache.yaml` with the full schema from `persistence-contract.md`.
-- `engram` → `mem_save` with `topic_key: "qa-init/{project}/preflight"`, `type: architecture`.
-- `none` → return inline only; note that cache was not persisted.
+Also read app start-command hints and cleanup-hook patterns from project files (see `persistence-contract.md` for the full `detected_start_hints[]` and `detected_cleanup_hook` schema) — include them in the payload.
 
 ---
 

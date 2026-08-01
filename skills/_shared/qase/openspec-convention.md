@@ -8,7 +8,7 @@ See `skills/_shared/qase/oracle-contract.md` for tier semantics and citation req
 qaspec/
 ├── config.yaml              <- Project-specific QASE config
 ├── init.yaml                <- Project context from qa-init
-├── preflight-cache.yaml     <- NEW, written by qa-init only
+├── preflight-cache.yaml     <- NEW, produced by qa-init, written by orchestrator
 ├── baselines/               <- NEW, persists ACROSS reviews
 │   └── {page-slug}/
 │       ├── 1440x900.png
@@ -45,20 +45,25 @@ qaspec/
 
 ## Artifact File Paths
 
-| Skill | Creates / Reads | Path |
-|-------|----------------|------|
-| qa-init | Creates | `qaspec/config.yaml`, `qaspec/init.yaml`, `qaspec/reviews/`, `qaspec/feedback/`, `qaspec/reviews/archive/`, `qaspec/preflight-cache.yaml` |
-| qa-scan | Creates | `qaspec/reviews/{review-id}/scan.md` |
-| qa-architect | Creates | `qaspec/reviews/{review-id}/architect.md` |
-| qa-advocate | Creates | `qaspec/reviews/{review-id}/advocate.md` |
-| qa-security | Creates | `qaspec/reviews/{review-id}/security.md` |
-| qa-inclusion | Creates | `qaspec/reviews/{review-id}/inclusion.md` |
-| qa-performance | Creates | `qaspec/reviews/{review-id}/performance.md` |
-| qa-test-strategy | Creates | `qaspec/reviews/{review-id}/test-strategy.md` |
-| qa-browser | Creates | `qaspec/reviews/{review-id}/browser.md`, `qaspec/reviews/{review-id}/flow-evidence/{flow-slug}.md`, and the artifact subtree `qaspec/reviews/{review-id}/flow-evidence/{flow-slug}/` (screenshots referenced by path relative to the review directory, e.g., `flow-evidence/{flow-slug}/screenshots/step-01.png`) |
-| qa-visual | Creates | `qaspec/reviews/{review-id}/visual.md`, `qaspec/reviews/{review-id}/visual-diffs/{page-slug}-{viewport}.png`; reads and writes `qaspec/baselines/{page-slug}/{viewport}.png` |
-| qa-report | Creates | `qaspec/reviews/{review-id}/report.md` |
-| qa-feedback | Creates | `qaspec/feedback/{agent}/{pattern-slug}.md` |
+Specialists are **producers** — they return their report payload. The orchestrator is the
+**writer** — it persists artifacts to the filesystem. See `persistence-contract.md` for the
+sole-writer rule and the producer/writer distinction.
+
+| Artifact | Produced By | Written By (Orchestrator) | Path |
+|----------|-------------|--------------------------|------|
+| preflight-cache | qa-init | Orchestrator | `qaspec/preflight-cache.yaml` |
+| config + init | qa-init | Orchestrator | `qaspec/config.yaml`, `qaspec/init.yaml`, `qaspec/reviews/`, `qaspec/feedback/`, `qaspec/reviews/archive/` |
+| scan | qa-scan | Orchestrator | `qaspec/reviews/{review-id}/scan.md` |
+| architect report | qa-architect | Orchestrator | `qaspec/reviews/{review-id}/architect.md` |
+| advocate report | qa-advocate | Orchestrator | `qaspec/reviews/{review-id}/advocate.md` |
+| security report | qa-security | Orchestrator | `qaspec/reviews/{review-id}/security.md` |
+| inclusion report | qa-inclusion | Orchestrator | `qaspec/reviews/{review-id}/inclusion.md` |
+| performance report | qa-performance | Orchestrator | `qaspec/reviews/{review-id}/performance.md` |
+| test-strategy report | qa-test-strategy | Orchestrator | `qaspec/reviews/{review-id}/test-strategy.md` |
+| browser report | qa-browser | Orchestrator | `qaspec/reviews/{review-id}/browser.md`, `qaspec/reviews/{review-id}/flow-evidence/{flow-slug}.md`, and artifact subtree |
+| visual report | qa-visual | Orchestrator | `qaspec/reviews/{review-id}/visual.md`, `qaspec/reviews/{review-id}/visual-diffs/{page-slug}-{viewport}.png`; reads `qaspec/baselines/` |
+| final report | qa-report | Orchestrator | `qaspec/reviews/{review-id}/report.md` |
+| feedback patterns | qa-feedback | Orchestrator | `qaspec/feedback/{agent}/{pattern-slug}.md` |
 
 ## Review ID Format
 

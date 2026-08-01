@@ -12,20 +12,7 @@ Every finding produced by a QASE specialist MUST use exactly one of these severi
 
 ## Oracle Tier and Verdict
 
-See `skills/_shared/qase/oracle-contract.md` for the full tier definitions, citation requirements, resolution algorithm, and blocking matrix. This section restates the ceilings that govern verdict production.
-
-**Severity ceilings by tier** (enforcement gate — applied per finding before the veto branch):
-
-| Oracle Tier | Max Severity | May produce BLOCKER? |
-|-------------|--------------|----------------------|
-| L1 | BLOCKER | Yes (citation required) |
-| L2 | BLOCKER | Yes (test must be executed in this review) |
-| L3-schema | BLOCKER | Yes (path:line + verbatim literal required) |
-| L3-inferred | WARNING | No — cap at WARNING |
-| L4 | WARNING | No — advisory only |
-| UNGROUNDED | INFO | No — INCONCLUSIVE only |
-
-**Runtime finding with no Oracle Tier field**: treated as UNGROUNDED and capped at INFO. A missing tier field is not a benign omission.
+Tier definitions and the blocking matrix are owned by `oracle-contract.md`. Apply them; do not restate them.
 
 ## Veto Power
 
@@ -107,16 +94,7 @@ VERDICT:
 
 ### Runtime findings
 
-Runtime findings (from `qa-browser` and `qa-visual`) carry an Oracle Tier that determines their maximum severity. Authors of runtime findings MUST NOT assign a severity above the tier ceiling.
-
-| Oracle Tier | Author-side ceiling | Notes |
-|-------------|---------------------|-------|
-| L4 | WARNING max | Named standard required; advisory only |
-| L3-inferred | WARNING max | ≥ 2 independent signals required |
-| L3-schema | May reach BLOCKER | `path:line` + verbatim literal required |
-| L2 | May reach BLOCKER | Test must have been executed in this review |
-| L1 | May reach BLOCKER | Spec file path + verbatim scenario title required |
-| No tier field | INFO max | Treated as UNGROUNDED by the enforcement gate |
+Runtime findings (from `qa-browser` and `qa-visual`) carry an Oracle Tier that determines their maximum severity. Tier definitions and the blocking matrix are owned by `oracle-contract.md`. Apply them; do not restate them.
 
 ## Rules
 
